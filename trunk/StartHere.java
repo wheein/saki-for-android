@@ -9,6 +9,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -53,12 +55,13 @@ public class StartHere extends Activity/* implements View.OnTouchListener*/  {
 	        mGameThread.setUI(mSakiView);
 	        mSakiView.setGameThread(mGameThread);
 	        mSakiView.setActivity(this);
-	        mSakiView.setLangauge(true);
-	        mSakiView.setDebug(true);
+	        //mSakiView.setLangauge(true);
+	        //mSakiView.setDebug(true);
+	        //mSakiView.updatePreferences(PreferenceManager.getDefaultSharedPreferences(this));
         }
         catch(Exception e){
         	String WhatAmI = e.toString();
-        	WhatAmI.length();
+        	Log.e("StartHere", WhatAmI);
         }
         //mGameThread.start();
         
@@ -78,6 +81,10 @@ public class StartHere extends Activity/* implements View.OnTouchListener*/  {
         	mSakiView.setLangauge(item.isChecked());
         else if(item.getItemId() == R.id.debug)
         	mSakiView.setDebug(item.isChecked());
+        else if(item.getItemId() == R.id.settings){
+        	startActivityForResult(new Intent(this, Settings.class), 123);
+            return true;
+        }
         return true;
     }  
     
@@ -94,6 +101,14 @@ public class StartHere extends Activity/* implements View.OnTouchListener*/  {
         	menu.getItem(1).setTitleCondensed("Debug On");
     	return result;
 
+    }
+    
+    protected void onActivityResult(int requestCode, int resultCode,
+            Intent data) {
+        if (requestCode == 123) {
+        	SharedPreferences myPrefs = PreferenceManager.getDefaultSharedPreferences(this);
+            mSakiView.updatePreferences(myPrefs);
+        }
     }
     
     
@@ -133,6 +148,7 @@ public class StartHere extends Activity/* implements View.OnTouchListener*/  {
     */
     public void onDestroy(){
     	mSakiView.finish();
+    	super.onDestroy();
     }
     
     //public void onResume(){
