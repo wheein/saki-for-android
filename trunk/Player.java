@@ -17,6 +17,13 @@ public class Player {
 	public boolean rinshan;
 	public int characterID;
 	
+	//Super Powers
+	public boolean[] powerActivated;
+	ArrayList<Integer> powerTiles;
+	
+	//Graphics related stuff
+	public int currentState;
+	
 	//Pointers to other classes
 	MainGameThread pMainGameThread;
 	
@@ -34,14 +41,19 @@ public class Player {
 		//The thread should remain dorment unless we actually call on it to do something
 		//it's in a seperate thread so that the UI/GameThread won't be blocked
 		//by us doing random AI calculations
-		myAI = new AI(ID); //default AI
-		myAI.start();
+		//myAI = new AI(ID); //default AI
+		//myAI.start();
 		
 		currentWind = Globals.Winds.EAST;
 		AIControlled = true;
 		
-		characterID = Globals.Characters.GENERIC;
-		
+		characterID = Globals.Characters.SAKI;
+		powerActivated = new boolean[Globals.Powers.COUNT];
+		for(int i = 0; i < Globals.Powers.COUNT; i++){
+			powerActivated[i] = false;
+		}
+		powerTiles = new ArrayList<Integer>();
+		currentState = Globals.Characters.Graphics.NEUTRAL;
 		//yaku = new int[Globals.ALLYAKUCOUNT];
 	}
 	
@@ -50,6 +62,11 @@ public class Player {
 		riichi = false;
 		ippatsu = false;
 		rinshan = false;
+		currentState = Globals.Characters.Graphics.NEUTRAL;
+		//for(int i = 0; i < Globals.Powers.COUNT; i++){
+		//	powerActivated[i] = false;
+		//}
+		powerTiles.clear();
 		myHand.clear();
 	}
 	
@@ -73,7 +90,8 @@ public class Player {
 	
 	public void setAIControl(boolean isCom){
 		if(!isCom && AIControlled){
-			myAI.stopThread();
+			if(myAI != null)
+				myAI.stopThread();
 		}
 		AIControlled = isCom;
 	}
@@ -257,3 +275,4 @@ public class Player {
 	}
 	
 }
+
