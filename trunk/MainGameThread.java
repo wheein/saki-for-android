@@ -27,6 +27,11 @@ public class MainGameThread extends Thread implements Runnable{
 	public int curRound;
 	public boolean selfDrawWin;
 	
+	/**
+	 * Settings and preferences
+	 */
+	public boolean bPowers;
+	
 	//Other classes
 	public Table mTable;
 	public Player[] mPlayers;
@@ -44,7 +49,7 @@ public class MainGameThread extends Thread implements Runnable{
 			mPlayers = new Player[4];
 			for(int i = 0; i < 4; i++){
 				mPlayers[i] = new Player(i, this);
-				mPlayers[i].myAI.setGameThread(this);
+				//mPlayers[i].myAI.setGameThread(this);
 				//Remove this
 				//mPlayers[i].myAI.bCallEverythingMode = true;
 			}
@@ -58,6 +63,7 @@ public class MainGameThread extends Thread implements Runnable{
 			mRunning = true;
 			discardIdx = -1;
 			callCmd = -1;
+			bPowers = true;
 			//randGenerator = new Random();
 		}
 		catch(Exception e){
@@ -67,16 +73,22 @@ public class MainGameThread extends Thread implements Runnable{
 	}
 	
 	public void init(){
-		mTable.init();
-		curPlayer = 0;
-		curWind = Globals.Winds.EAST;
-		curEast = 0;
-		curRound = 1;
-		//Dora = new Tile[8];
-		//doraCount = 0;
-		//Discards = new Tile[4][22];
-		//discardCount = new int[] {0,0,0,0};
-		roundInProgress = false;
+		try{
+			mTable.init();
+			curPlayer = 0;
+			curWind = Globals.Winds.EAST;
+			curEast = 0;
+			curRound = 1;
+			//Dora = new Tile[8];
+			//doraCount = 0;
+			//Discards = new Tile[4][22];
+			//discardCount = new int[] {0,0,0,0};
+			roundInProgress = false;
+		}
+		catch(Exception e){
+			String WTFAmI = e.toString();
+			Log.e("MainGameThread.init", WTFAmI);
+		}
 	}
 	
 	public void setUI(SakiView useThis){
@@ -88,13 +100,14 @@ public class MainGameThread extends Thread implements Runnable{
 		try{
 			
 			mTable.init();
-			
+
 			selfDrawWin = false;
 			
 			int windIter = curEast;
 			for(int iter = 0; iter < 4; iter++){
 				mPlayers[windIter].clearHand(Globals.Winds.EAST + iter);
 				windIter = (windIter+1)%4;
+				mPlayers[windIter].myAI.handlePowersAtStart();
 			}
 			//pGameEngine.deal();
 			int wallCount = mTable.wallCount();
@@ -113,6 +126,8 @@ public class MainGameThread extends Thread implements Runnable{
 			mPlayers[1].myHand.sort();
 			mPlayers[2].myHand.sort();
 			mPlayers[3].myHand.sort();
+			
+			mUI.newRound();
 			
 			roundInProgress = true;
 		}
@@ -146,6 +161,7 @@ public class MainGameThread extends Thread implements Runnable{
 			for(int i = 0; i < 4; i++){
 				if(mPlayers[i].AIControlled)
 					mPlayers[i].myAI.onEnd();
+				mPlayers[i].myAI.handlePowersAtEnd();
 			}
 			roundInProgress = false;
 		}
@@ -157,8 +173,14 @@ public class MainGameThread extends Thread implements Runnable{
 	
 	public void drawFromWall(int player){
 		try{
-			Tile temp = new Tile(mTable.drawRandomTile());
-			mPlayers[player].myHand.draw(temp, true);
+			if(mPlayers[player].powerActivated[Globals.Powers.drawBased]){
+				Tile temp = new Tile(mTable.drawNonRandomTile(mPlayers[player].powerTiles));
+				mPlayers[player].myHand.draw(temp, true);
+			}
+			else{
+				Tile temp = new Tile(mTable.drawRandomTile());
+				mPlayers[player].myHand.draw(temp, true);
+			}
 		}
 		catch(Exception e){
 			String WTFAmI = e.toString();
@@ -173,13 +195,12 @@ public class MainGameThread extends Thread implements Runnable{
 		
 		while(mRunning){
 			try{
-				//sleep(2000); //Give the render thread time to get started, maybe use a yeild?
-				//TODO reduce the amount of direct varaible manipulation of GameEngine
-				//pGameEngine = Globals.GameEngine;
+				
+				startAIThreads();
 				
 				//The only time this won't be tru is if someone calls something
 				boolean needDraw = true;
-				while(curWind != Globals.Winds.WEST){
+				while(curWind != Globals.Winds.WEST && mRunning){
 					if(!roundInProgress){
 						startRound();
 					}
@@ -189,7 +210,7 @@ public class MainGameThread extends Thread implements Runnable{
 					int result = -1;
 					
 					//Until the wall is empty
-					while(mTable.wallCount() > 0){
+					while(mTable.wallCount() > 0 && mRunning){
 						
 						int wallCount = mTable.wallCount();
 						if(needDraw)
@@ -201,6 +222,9 @@ public class MainGameThread extends Thread implements Runnable{
 						
 						if(mPlayers[curPlayer].AIControlled){
 							mPlayers[curPlayer].myAI.onDraw();
+						}
+						else{
+							mPlayers[curPlayer].myAI.handlePowersAtDraw();
 						}
 						//sleep(2000); //delete this, it's just so I can see what's happening
 						
@@ -223,9 +247,13 @@ public class MainGameThread extends Thread implements Runnable{
 							if(canKan){
 								mPlayers[curPlayer].myAI.requestOutput(AI.SELFKAN);
 								if(mPlayers[curPlayer].myAI.getOutput() == 1){
-									mUI.showCall(curPlayer, Globals.CMD.SELFKAN, true);
+									mUI.showCall(curPlayer, Globals.CMD.SELFKAN, false);
 									mUI.triggerRedraw();
 									sleep(1000);
+									
+									/*if(mPlayers[curPlayer].powerActivated[Globals.Powers.drawBased]){
+										mPlayers[curPlayer].myAI.waitForThread();
+									}*/
 									
 									mPlayers[curPlayer].autoSelfKan();
 									if(!mTable.addDora()){
@@ -235,6 +263,25 @@ public class MainGameThread extends Thread implements Runnable{
 									needDraw = true;
 									continue;
 								}
+							}
+							
+							//Moved this before riichi, for ippatsu
+							mPlayers[curPlayer].myAI.requestOutput(AI.TSUMO);
+							if(mPlayers[curPlayer].myAI.getOutput() == 1 && needDraw){//needDraw is there to prevent a tsumo after a pon/chi
+								//we won!
+								result = curPlayer;  //or something
+								selfDrawWin = true;
+								
+								mPlayers[curPlayer].currentState = Globals.Characters.Graphics.HAPPY;
+								for(int tempChar = (curPlayer+1)%4; tempChar != curPlayer; tempChar = (tempChar+1)%4){
+									mPlayers[tempChar].currentState = Globals.Characters.Graphics.SAD;
+								}
+								mUI.showCall(curPlayer, Globals.CMD.TSUMO, true);
+								mUI.triggerRedraw();
+								sleep(1000);
+								//mPlayers[curPlayer].scoreHand();
+								//Add in situational yaku
+								break;
 							}
 							
 							if(!mPlayers[curPlayer].riichi){
@@ -257,20 +304,8 @@ public class MainGameThread extends Thread implements Runnable{
 								mPlayers[curPlayer].ippatsu = false;
 							}
 							
-							mPlayers[curPlayer].myAI.requestOutput(AI.TSUMO);
-							if(mPlayers[curPlayer].myAI.getOutput() == 1){
-								//we won!
-								result = curPlayer;  //or something
-								selfDrawWin = true;
-								
-								mUI.showCall(curPlayer, Globals.CMD.TSUMO, true);
-								mUI.triggerRedraw();
-								sleep(1000);
-								//mPlayers[curPlayer].scoreHand();
-								//Add in situational yaku
-								break;
-							}
-							else{
+							
+							//else{
 									
 								if(!mPlayers[curPlayer].riichi || RiichiCalled){ //let it pass when riichi is first called
 									mPlayers[curPlayer].myAI.requestOutput(AI.DISCARD);
@@ -282,7 +317,7 @@ public class MainGameThread extends Thread implements Runnable{
 								else{
 									tileToDiscard = mPlayers[curPlayer].myHand.discard(mPlayers[curPlayer].myHand.Tile14, true);
 								}
-							}
+							//}
 						}
 						else{
 							/**We need to get user input...somehow
@@ -307,6 +342,9 @@ public class MainGameThread extends Thread implements Runnable{
 							else
 								tilesAway = mPlayers[curPlayer].myHand.getShantenCount_TreeVersion(3, false);
 							
+							//Needed for powers to work
+							mPlayers[curPlayer].myAI.ShantanCount = tilesAway;
+							
 							//Other end of the hack
 							mPlayers[curPlayer].ippatsu = ippatsuSaver;
 							
@@ -316,7 +354,7 @@ public class MainGameThread extends Thread implements Runnable{
 								}
 							}
 							if(tilesAway == 0){
-								if(mPlayers[curPlayer].myHand.scoreHand(true) > 0)
+								if(mPlayers[curPlayer].myHand.scoreHand(true) > 0 && needDraw)
 									canTsumo = true;
 							}
 							
@@ -327,7 +365,7 @@ public class MainGameThread extends Thread implements Runnable{
 								
 								mUI.waitingForCallInput(false, false, false, false, canTsumo, canRiichi, canKan);
 								mUI.triggerRedraw();
-								while(callCmd == -1){
+								while(callCmd == -1 && mRunning){
 									//mUI.waitingForCallInput(mPlayers[playerToCheck].myAI.canCallPon(tileToDiscard), mPlayers[playerToCheck].myAI.canCallChi(tileToDiscard), mPlayers[playerToCheck].myAI.canCallKan(tileToDiscard), mPlayers[playerToCheck].myAI.canCallRon(tileToDiscard), false);
 									//I don't know a good way to do this without polling
 									sleep(500);
@@ -339,12 +377,22 @@ public class MainGameThread extends Thread implements Runnable{
 								}
 								
 								if(callCmd == Globals.CMD.TSUMO){
+									mPlayers[curPlayer].currentState = Globals.Characters.Graphics.HAPPY;
+									for(int tempChar = (curPlayer+1)%4; tempChar != curPlayer; tempChar = (tempChar+1)%4){
+										mPlayers[tempChar].currentState = Globals.Characters.Graphics.SAD;
+									}
+									mUI.showCall(curPlayer, callCmd, callCmd == Globals.CMD.TSUMO);
+									mUI.triggerRedraw();
+									sleep(1000);
 									//mPlayers[curPlayer].scoreHand();
 									selfDrawWin = true;
 									result = curPlayer;
 									break;
 								}
 								else if(callCmd == Globals.CMD.SELFKAN){
+									mUI.showCall(curPlayer, callCmd, callCmd == Globals.CMD.TSUMO);
+									mUI.triggerRedraw();
+									sleep(1000);
 									mPlayers[curPlayer].autoSelfKan();
 									if(!mTable.addDora()){
 										//abortive hand, do...something
@@ -355,6 +403,9 @@ public class MainGameThread extends Thread implements Runnable{
 									
 								}
 								else if(callCmd == Globals.CMD.RIICHI){
+									mUI.showCall(curPlayer, callCmd, callCmd == Globals.CMD.TSUMO);
+									mUI.triggerRedraw();
+									sleep(1000);
 									mPlayers[curPlayer].riichi = true;
 									mPlayers[curPlayer].ippatsu = true;
 									mTable.addPointsToTable(1000);
@@ -368,7 +419,7 @@ public class MainGameThread extends Thread implements Runnable{
 								mPlayers[curPlayer].ippatsu = false;
 							
 							if(!mPlayers[curPlayer].riichi || RiichiCalled){
-								while(discardIdx == -1){
+								while(discardIdx == -1 && mRunning){
 									mUI.waitingForDiscardInput();
 									//I don't know a good way to do this without polling
 									sleep(500);
@@ -397,6 +448,7 @@ public class MainGameThread extends Thread implements Runnable{
 							else{
 								tileToDiscard = mPlayers[curPlayer].myHand.discard(mPlayers[curPlayer].myHand.Tile14, true);
 							}
+							
 						}
 						
 						Globals.myAssert(tileToDiscard != null);
@@ -412,12 +464,16 @@ public class MainGameThread extends Thread implements Runnable{
 						
 						if(tilesAway == 1){
 							mPlayers[curPlayer].myHand.inTenpai = true;
+							boolean clearFuriten = true;
 							for(int i = 0; i < mPlayers[curPlayer].myHand.tenpaiTiles.size(); i++){
 								if(mTable.hasBeenDiscarded(mPlayers[curPlayer].myHand.tenpaiTiles.get(i), curPlayer, true)){
 									mPlayers[curPlayer].myHand.inFuriten = true;
+									clearFuriten = false;
 									break;
 								}
 							}
+							if(clearFuriten)
+								mPlayers[curPlayer].myHand.inFuriten = false;
 						}
 						else{
 							mPlayers[curPlayer].myHand.inTenpai = false;
@@ -426,8 +482,11 @@ public class MainGameThread extends Thread implements Runnable{
 						
 						if(mPlayers[curPlayer].AIControlled)
 							mPlayers[curPlayer].myAI.onDiscard();
-						else
+						else{
 							mPlayers[curPlayer].myHand.setupTilesToCall();
+							//Special Case for the user
+							mPlayers[curPlayer].myAI.handlePowersAtDiscard();
+						}
 						
 						//Check for Pons/Chis/rons....in the future
 						
@@ -436,39 +495,41 @@ public class MainGameThread extends Thread implements Runnable{
 						mTable.discardTile(tileToDiscard, curPlayer);
 						int highestCmd = 0;
 						int playerCalling = -1;
-						for(int playerToCheck = (curPlayer+1)%4; playerToCheck != curPlayer; playerToCheck = (playerToCheck+1)%4){
-							if(mPlayers[playerToCheck].AIControlled){
-								mPlayers[playerToCheck].myAI.requestOutput(AI.CALL);
-								int whatToDo = mPlayers[playerToCheck].myAI.getOutput();
-								if(whatToDo != -1){
-									//Display something to indicate the call
-									if(whatToDo > highestCmd){
-										highestCmd = whatToDo;
-										playerCalling = playerToCheck;
+						if(!mPlayers[curPlayer].powerActivated[Globals.Powers.invisibility]){
+							for(int playerToCheck = (curPlayer+1)%4; playerToCheck != curPlayer; playerToCheck = (playerToCheck+1)%4){
+								if(mPlayers[playerToCheck].AIControlled){
+									mPlayers[playerToCheck].myAI.requestOutput(AI.CALL);
+									int whatToDo = mPlayers[playerToCheck].myAI.getOutput();
+									if(whatToDo != -1){
+										//Display something to indicate the call
+										if(whatToDo > highestCmd){
+											highestCmd = whatToDo;
+											playerCalling = playerToCheck;
+										}
 									}
 								}
-							}
-							else{
-								//mPlayers[playerToCheck].myHand.setupTilesToCall();
-								callCmd = -1;
-								if(!mPlayers[playerToCheck].riichi){
-									boolean canCallChi = (curPlayer == ((playerToCheck+3)%4)) && mPlayers[playerToCheck].myHand.canCallChi(tileToDiscard);
-									mUI.waitingForCallInput(mPlayers[playerToCheck].myHand.canCallPon(tileToDiscard), canCallChi, mPlayers[playerToCheck].myHand.canCallKan(tileToDiscard), mPlayers[playerToCheck].myHand.canCallRon(tileToDiscard), false, false, false);
-								}
-								else
-									mUI.waitingForCallInput(false, false, false, mPlayers[playerToCheck].myHand.canCallRon(tileToDiscard), false, false, false);
-								mUI.triggerRedraw();
-								while(callCmd == -1){
-									//mUI.waitingForCallInput(mPlayers[playerToCheck].myAI.canCallPon(tileToDiscard), mPlayers[playerToCheck].myAI.canCallChi(tileToDiscard), mPlayers[playerToCheck].myAI.canCallKan(tileToDiscard), mPlayers[playerToCheck].myAI.canCallRon(tileToDiscard), false);
-									//I don't know a good way to do this without polling
-									sleep(500);
-								}
-								int whatToDo = callCmd;
-								if(whatToDo != -1){
-									//Display something to indicate the call
-									if(whatToDo > highestCmd){
-										highestCmd = whatToDo;
-										playerCalling = playerToCheck;
+								else{
+									//mPlayers[playerToCheck].myHand.setupTilesToCall();
+									callCmd = -1;
+									if(!mPlayers[playerToCheck].riichi){
+										boolean canCallChi = (curPlayer == ((playerToCheck+3)%4)) && mPlayers[playerToCheck].myHand.canCallChi(tileToDiscard);
+										mUI.waitingForCallInput(mPlayers[playerToCheck].myHand.canCallPon(tileToDiscard), canCallChi, mPlayers[playerToCheck].myHand.canCallKan(tileToDiscard), mPlayers[playerToCheck].myHand.canCallRon(tileToDiscard), false, false, false);
+									}
+									else
+										mUI.waitingForCallInput(false, false, false, mPlayers[playerToCheck].myHand.canCallRon(tileToDiscard), false, false, false);
+									mUI.triggerRedraw();
+									while(callCmd == -1){
+										//mUI.waitingForCallInput(mPlayers[playerToCheck].myAI.canCallPon(tileToDiscard), mPlayers[playerToCheck].myAI.canCallChi(tileToDiscard), mPlayers[playerToCheck].myAI.canCallKan(tileToDiscard), mPlayers[playerToCheck].myAI.canCallRon(tileToDiscard), false);
+										//I don't know a good way to do this without polling
+										sleep(500);
+									}
+									int whatToDo = callCmd;
+									if(whatToDo != -1){
+										//Display something to indicate the call
+										if(whatToDo > highestCmd){
+											highestCmd = whatToDo;
+											playerCalling = playerToCheck;
+										}
 									}
 								}
 							}
@@ -476,10 +537,14 @@ public class MainGameThread extends Thread implements Runnable{
 						
 						//If someone called the last tile
 						if(highestCmd > 0){
+							mPlayers[curPlayer].currentState = Globals.Characters.Graphics.SAD;
+							mPlayers[playerCalling].currentState = Globals.Characters.Graphics.HAPPY;
 							mUI.showCall(playerCalling, highestCmd, highestCmd == Globals.CMD.RON);
 							mUI.triggerRedraw();
 							sleep(1000);
+							
 							Tile lastDiscard = mTable.undiscardLastTile(curPlayer);
+							mPlayers[playerCalling].myAI.handlePowersAtCall();
 							
 							if(highestCmd == Globals.CMD.RON){
 								mPlayers[playerCalling].myHand.draw(lastDiscard, true);
@@ -493,6 +558,12 @@ public class MainGameThread extends Thread implements Runnable{
 							//}
 							else{
 								//Do stuff
+								mPlayers[curPlayer].currentState = Globals.Characters.Graphics.NEUTRAL;
+								mPlayers[playerCalling].currentState = Globals.Characters.Graphics.NEUTRAL;
+								for(int thisPlayer = 0; thisPlayer < 4; thisPlayer++){
+									//Clear out any ippatsu's
+									mPlayers[thisPlayer].ippatsu = false;
+								}
 								needDraw = false;
 								if(highestCmd == Globals.CMD.CHI){
 									if(mPlayers[playerCalling].AIControlled){
@@ -527,9 +598,12 @@ public class MainGameThread extends Thread implements Runnable{
 								}
 								else if(highestCmd == Globals.CMD.KAN){
 									mPlayers[playerCalling].autoKan(lastDiscard, curPlayer);
+									mPlayers[playerCalling].rinshan = true;
+									//if(mPlayers[playerCalling].AIControlled){ //Needed for SakiAI
+										mPlayers[playerCalling].myAI.handlePowersAtKan();
+									//}
 									needDraw = true;
 									mTable.addDora();
-									mPlayers[playerCalling].rinshan = true;
 								}
 							}
 							//mTable.undiscardLastTile(curPlayer);
@@ -559,19 +633,25 @@ public class MainGameThread extends Thread implements Runnable{
 						//mPlayers[result].score += points;
 						if(selfDrawWin){
 							if(isEast){
+								mPlayers[result].myAI.handlePowersAtWin();
+								
 								int pointsPer = points/3;
 								mPlayers[result].offsetScore(points);
 								int idx = 0;
 								for(int i = (result+1)%4; i != result; i = (i+1)%4){
+									mPlayers[i].myAI.handlePowersAtLose();
 									losers[idx++] = i;
 									mPlayers[i].offsetScore(-pointsPer);
 								}
 							}
 							else{
+								mPlayers[result].myAI.handlePowersAtWin();
+								
 								int pointsPer = points/4;
 								mPlayers[result].offsetScore(points);
 								int idx = 0;
 								for(int i = (result+1)%4; i != result; i = (i+1)%4){
+									mPlayers[i].myAI.handlePowersAtLose();
 									losers[idx++] = i;
 									if(mPlayers[i].currentWind == Globals.Winds.EAST)
 										mPlayers[i].offsetScore(-(2*pointsPer));
@@ -584,6 +664,9 @@ public class MainGameThread extends Thread implements Runnable{
 							losers[0] = curPlayer;
 							mPlayers[curPlayer].offsetScore(-points);
 							mPlayers[result].offsetScore(points);
+							
+							mPlayers[result].myAI.handlePowersAtWin();
+							mPlayers[curPlayer].myAI.handlePowersAtLose();
 						}
 						
 						mPlayers[result].offsetScore(mTable.getPointsOnTable());
@@ -628,6 +711,17 @@ public class MainGameThread extends Thread implements Runnable{
 							}
 							
 						}
+						
+						for(int thisPlayer = 0; thisPlayer < 4; thisPlayer++){
+							if(inTenpai.contains(thisPlayer))
+								mUI.showCall(thisPlayer, Globals.CMD.TENPAI, true);
+							else
+								mUI.showCall(thisPlayer, Globals.CMD.NOTEN, false);
+							mUI.triggerRedraw();
+							sleep(2000);
+						}
+						mUI.triggerRedraw();
+						sleep(2000);
 					}
 					
 					endRound(!(result == curEast));
@@ -697,4 +791,63 @@ public class MainGameThread extends Thread implements Runnable{
 		}
 		return count;	
 	}
+	
+	public void terminateThread(){
+		mRunning = false;
+	}
+	
+	public boolean setCharacter(int playerNum, int CharID){
+		try{
+			if(playerNum < 0 || playerNum > 3)
+				return false;
+			if(CharID < 0 || CharID >= Globals.Characters.COUNT)
+				return false;
+			mPlayers[playerNum].characterID = CharID;
+			//Set AI here too
+			if(CharID == Globals.Characters.SAKI){
+				mPlayers[playerNum].myAI = new SakiAI(playerNum);
+				mPlayers[playerNum].myAI.setGameThread(this);
+			}
+			else if(CharID == Globals.Characters.MOMOKA){
+				mPlayers[playerNum].myAI = new MomokaAI(playerNum);
+				mPlayers[playerNum].myAI.setGameThread(this);
+			}
+			else if(CharID == Globals.Characters.KOROMO){
+				mPlayers[playerNum].myAI = new KoromoAI(playerNum);
+				mPlayers[playerNum].myAI.setGameThread(this);
+			}
+			else{
+				mPlayers[playerNum].myAI = new AI(playerNum);
+				mPlayers[playerNum].myAI.setGameThread(this);
+			}
+			return true;
+		}
+		catch(Exception e){
+			String WTFAmI = e.toString();
+			Log.e("MainGameThread.setChar", WTFAmI);
+			return false;
+		}
+	}
+	
+	private void startAIThreads(){
+		try{
+			//Start Up the AI's
+			for(int i = 0; i < 4; i++){
+				if(mPlayers[i].AIControlled){
+					if(mPlayers[i].myAI == null){
+						Log.e("MainGAmeThread.StartRound", "AI not Initialized");
+						mPlayers[i].myAI = new AI(i);
+						mPlayers[i].myAI.setGameThread(this);
+					}
+					if(!mPlayers[i].myAI.isAlive())
+						mPlayers[i].myAI.start();
+				}
+			}
+		}
+		catch(Exception e){
+			String WTFAmI = e.toString();
+			Log.e("MainGameThread.startAIThreads", WTFAmI);
+		}
+	}
 }
+
