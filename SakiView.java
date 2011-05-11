@@ -1,10 +1,12 @@
 package mahjong.riichi;
 import java.util.ArrayList;
+import java.util.Map;
 
 import mahjong.riichi.R;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -12,9 +14,11 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.os.Handler;
 import android.os.Message;
+import android.preference.PreferenceManager;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.GestureDetector;
@@ -92,7 +96,7 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         Bitmap[] TileBMPsSouthRotated;
         Bitmap[] TileBMPsWestRotated;
         Bitmap[] TileBMPsNorthRotated;
-        Bitmap[] characterPortraits;
+        Bitmap[][] characterPortraits;
         Bitmap[] miscBitmaps;
         private Bitmap mBackgroundImage;
         
@@ -123,9 +127,15 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         private int playerCalling;
         private boolean[] showHand;
         private boolean bTitleScreen;
+        private boolean bPlayerSelect;
+        private boolean bScoreScreen;
+        
+        /**
+         * Settings and Preferences
+         */
         public boolean bJapanese;
         public boolean bDebug;
-        private boolean bScoreScreen;
+        public boolean bPowers;
         
         /**
          * Selection stuff
@@ -142,6 +152,12 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         public int loser2;
         public int loser3;
         public int points;
+        
+        /**
+         * Character Select Info
+         */
+        private int currentlyShowing;
+        private int onPlayer;
         
         /**
          * These would be useful if we needed this thread to actually run
@@ -170,6 +186,7 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 	            playerCalling = 0;
 	            showHand = new boolean[] {false, false, false, false};
 	            bTitleScreen = true;
+	            bPlayerSelect = false;
 
 	            Resources res = context.getResources();
 	            TileBMPs = new Bitmap[39];
@@ -179,8 +196,8 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 	            TileBMPsSouthRotated = new Bitmap[39];
 	            TileBMPsWestRotated = new Bitmap[39];
 	            TileBMPsNorthRotated = new Bitmap[39];
-	            characterPortraits = new Bitmap[Globals.Characters.COUNT];
-	            miscBitmaps = new Bitmap[Globals.Graphics.MISC_COUNT];
+	            characterPortraits = new Bitmap[Globals.Characters.COUNT][Globals.Characters.Graphics.COUNT];
+	            miscBitmaps = new Bitmap[Globals.Graphics.MISC.COUNT];
 	            
 	            //Initialize Bitmaps
 	            TileBMPs[0] = BitmapFactory.decodeResource(res, R.drawable.blank);
@@ -276,32 +293,51 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 	            needButtons = new boolean[] {false, false, false, false, false, false, false, false};
 	            
 	            //Initialize Bitmaps
-	            characterPortraits[Globals.Characters.GENERIC] = BitmapFactory.decodeResource(res, R.drawable.portraitplaceholder);
-	            characterPortraits[Globals.Characters.KANA] = BitmapFactory.decodeResource(res, R.drawable.kana);
-	            characterPortraits[Globals.Characters.KOROMO] = BitmapFactory.decodeResource(res, R.drawable.koromo);
-	            characterPortraits[Globals.Characters.SAKI] = BitmapFactory.decodeResource(res, R.drawable.saki);
+	            //characterPortraits[Globals.Characters.GENERIC][Globals.Characters.Graphics.NEUTRAL] = BitmapFactory.decodeResource(res, R.drawable.portraitplaceholder);
+	            characterPortraits[Globals.Characters.KANA][Globals.Characters.Graphics.NEUTRAL] = BitmapFactory.decodeResource(res, R.drawable.kana_neutral);
+	            characterPortraits[Globals.Characters.KOROMO][Globals.Characters.Graphics.NEUTRAL] = BitmapFactory.decodeResource(res, R.drawable.koromo_neutral);
+	            characterPortraits[Globals.Characters.SAKI][Globals.Characters.Graphics.NEUTRAL] = BitmapFactory.decodeResource(res, R.drawable.saki_neutral);
+	            characterPortraits[Globals.Characters.MOMOKA][Globals.Characters.Graphics.NEUTRAL] = BitmapFactory.decodeResource(res, R.drawable.momoka_neutral);
+	            
+	            characterPortraits[Globals.Characters.KANA][Globals.Characters.Graphics.HAPPY] = BitmapFactory.decodeResource(res, R.drawable.kana_happy);
+	            characterPortraits[Globals.Characters.KOROMO][Globals.Characters.Graphics.HAPPY] = BitmapFactory.decodeResource(res, R.drawable.koromo_happy);
+	            characterPortraits[Globals.Characters.SAKI][Globals.Characters.Graphics.HAPPY] = BitmapFactory.decodeResource(res, R.drawable.saki_happy);
+	            characterPortraits[Globals.Characters.MOMOKA][Globals.Characters.Graphics.HAPPY] = BitmapFactory.decodeResource(res, R.drawable.momoka_happy);
+	            
+	            characterPortraits[Globals.Characters.KANA][Globals.Characters.Graphics.SAD] = BitmapFactory.decodeResource(res, R.drawable.kana_sad);
+	            characterPortraits[Globals.Characters.KOROMO][Globals.Characters.Graphics.SAD] = BitmapFactory.decodeResource(res, R.drawable.koromo_sad);
+	            characterPortraits[Globals.Characters.SAKI][Globals.Characters.Graphics.SAD] = BitmapFactory.decodeResource(res, R.drawable.saki_sad);
+	            characterPortraits[Globals.Characters.MOMOKA][Globals.Characters.Graphics.SAD] = BitmapFactory.decodeResource(res, R.drawable.momoka_sad);
+	            
+	            characterPortraits[Globals.Characters.KANA][Globals.Characters.Graphics.FULL] = BitmapFactory.decodeResource(res, R.drawable.kanafull);
+	            characterPortraits[Globals.Characters.KOROMO][Globals.Characters.Graphics.FULL] = BitmapFactory.decodeResource(res, R.drawable.koromofull);
+	            characterPortraits[Globals.Characters.SAKI][Globals.Characters.Graphics.FULL] = BitmapFactory.decodeResource(res, R.drawable.sakifull);
+	            characterPortraits[Globals.Characters.MOMOKA][Globals.Characters.Graphics.FULL] = BitmapFactory.decodeResource(res, R.drawable.momokafull);
 	            
 	          //Default Values
 	            miniTileWidth = TileBMPsWestRotated[1].getWidth();
 	            miniTileHeight = TileBMPsWestRotated[1].getHeight();
-	            portraitWidth = characterPortraits[Globals.Characters.GENERIC].getWidth();
-	            portraitHeight = characterPortraits[Globals.Characters.GENERIC].getHeight();
+	            portraitWidth = characterPortraits[Globals.Characters.SAKI][Globals.Characters.Graphics.NEUTRAL].getWidth();
+	            portraitHeight = characterPortraits[Globals.Characters.SAKI][Globals.Characters.Graphics.NEUTRAL].getHeight();
 	            
 	            //Misc
-	            miscBitmaps[Globals.Graphics.MISC_BUBBLE_LEFT] = BitmapFactory.decodeResource(res, R.drawable.bubble);
-	            miscBitmaps[Globals.Graphics.MISC_BUBBLE_RIGHT] = BitmapFactory.decodeResource(res, R.drawable.bubbleright);
-	            miscBitmaps[Globals.Graphics.MISC_LOGO] = BitmapFactory.decodeResource(res, R.drawable.logo);
-	            miscBitmaps[Globals.Graphics.MISC_START_BTN] = BitmapFactory.decodeResource(res, R.drawable.start);
-	            miscBitmaps[Globals.Graphics.MISC_OK_BTN] = BitmapFactory.decodeResource(res, R.drawable.ok);
-	            miscBitmaps[Globals.Graphics.MISC_CENTER] = BitmapFactory.decodeResource(res, R.drawable.center);
-	            miscBitmaps[Globals.Graphics.MISC_CENTER] = Bitmap.createScaledBitmap(miscBitmaps[Globals.Graphics.MISC_CENTER], (miniTileWidth*6), (miniTileWidth*6), true);
+	            miscBitmaps[Globals.Graphics.MISC.BUBBLE_LEFT] = BitmapFactory.decodeResource(res, R.drawable.bubble);
+	            miscBitmaps[Globals.Graphics.MISC.BUBBLE_RIGHT] = BitmapFactory.decodeResource(res, R.drawable.bubbleright);
+	            miscBitmaps[Globals.Graphics.MISC.LOGO] = BitmapFactory.decodeResource(res, R.drawable.logo);
+	            miscBitmaps[Globals.Graphics.MISC.START_BTN] = BitmapFactory.decodeResource(res, R.drawable.start);
+	            miscBitmaps[Globals.Graphics.MISC.OK_BTN] = BitmapFactory.decodeResource(res, R.drawable.ok);
+	            miscBitmaps[Globals.Graphics.MISC.CENTER] = BitmapFactory.decodeResource(res, R.drawable.center);
+	            miscBitmaps[Globals.Graphics.MISC.CENTER] = Bitmap.createScaledBitmap(miscBitmaps[Globals.Graphics.MISC.CENTER], (miniTileWidth*6), (miniTileWidth*6), true);
+	            miscBitmaps[Globals.Graphics.MISC.LEFT_ARROW] = BitmapFactory.decodeResource(res, R.drawable.left_arrow);
+	            miscBitmaps[Globals.Graphics.MISC.RIGHT_ARROW] = BitmapFactory.decodeResource(res, R.drawable.right_arrow);
+	            miscBitmaps[Globals.Graphics.MISC.OK_SQUARE_BTN] = BitmapFactory.decodeResource(res, R.drawable.ok_square);
 	            
 	            cursorX = 0;
 	            cursorY = 0;
 	            tileSelected = -1;
 	            
-	            bDebug = true;
-	            bJapanese = true;
+	            bDebug = false;
+	            bJapanese = false;
 	            bScoreScreen = false;
 	            
 	            
@@ -345,17 +381,105 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         		if(bTitleScreen){
         			canvas.drawColor(Color.WHITE);
         			//canvas.drawBitmap(mBackgroundImage, 0, 0, null);
-        			int logoWidth = miscBitmaps[Globals.Graphics.MISC_LOGO].getWidth();
-        			int logoHeight = miscBitmaps[Globals.Graphics.MISC_LOGO].getHeight();
-        			canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC_LOGO], centerX - (logoWidth/2), centerY/2, null);
+        			int logoWidth = miscBitmaps[Globals.Graphics.MISC.LOGO].getWidth();
+        			int logoHeight = miscBitmaps[Globals.Graphics.MISC.LOGO].getHeight();
+        			canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.LOGO], centerX - (logoWidth/2), centerY/2, null);
         			
         			Paint textBrush = new Paint();
 		        	textBrush.setColor(Color.BLACK);
 		        	textBrush.setTextSize(16.0f);
 		        	canvas.drawText(Globals.VERSION, centerX/2, (centerY/2)+logoHeight+5, textBrush);
 		        	
-		        	int btnWidth = miscBitmaps[Globals.Graphics.MISC_START_BTN].getWidth();
-		        	canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC_START_BTN], centerX - (btnWidth/2), (centerY/2)+logoHeight+25, null);
+		        	int btnWidth = miscBitmaps[Globals.Graphics.MISC.START_BTN].getWidth();
+		        	canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.START_BTN], centerX - (btnWidth/2), (centerY/2)+logoHeight+25, null);
+        		}
+        		else if(bPlayerSelect){
+        			/**
+        			 * Bio on the left
+        			 * Picture in the middle
+        			 * Controls to the right
+        			 */
+        			try{
+        				canvas.drawColor(Color.WHITE);
+        				
+	        			Paint textBrush = new Paint();
+			        	textBrush.setColor(Color.BLACK);
+			        	textBrush.setTextSize(16.0f);
+			        	
+			        	Paint miniTextBrush = new Paint();
+			        	miniTextBrush.setColor(Color.BLACK);
+			        	//miniTextBrush.setTextSize(10.0f);
+			        	
+			        	Paint bigTextBrush = new Paint();
+			        	bigTextBrush.setColor(Color.BLUE);
+			        	//if(bJapanese)
+			        	//	bigTextBrush.setTextSize(20.0f);
+			        	//else
+			        	//	bigTextBrush.setTextSize(28.0f);
+			        
+			        	String Name = Globals.Characters.getName(currentlyShowing, bJapanese);
+			        	bigTextBrush.setTextSize(scaleText(Name, mCanvasWidth/2, 999));
+			        	Rect bounds = new Rect();
+			        	
+			        	bigTextBrush.getTextBounds(Globals.Characters.getName(currentlyShowing, bJapanese), 0, Name.length(), bounds);
+			        	int nameHeight = bounds.height();
+			        	
+			        	canvas.drawText(Name, 0, nameHeight, bigTextBrush);
+			        	
+			        	textBrush.getTextBounds("School: ", 0, 8, bounds);
+			        	int smallTextHeight = bounds.height();
+			        	int smallTextWidth = bounds.width();
+			        	if(bJapanese){
+			        		canvas.drawText("学校: ", 0, nameHeight + (smallTextHeight*2), textBrush);
+			        		canvas.drawText("特技:", 0, nameHeight + (smallTextHeight*4), textBrush);
+			        		canvas.drawText("性格:", 0, nameHeight + (smallTextHeight*6), textBrush);
+			        	}
+			        	else{
+			        		canvas.drawText("School:", 0, nameHeight + (smallTextHeight*2), textBrush);
+			        		canvas.drawText("Power:", 0, nameHeight + (smallTextHeight*4), textBrush);
+			        		canvas.drawText("Bio:", 0, nameHeight + (smallTextHeight*6), textBrush);
+			        	}
+			        	
+			        	canvas.drawText(Globals.Characters.getSchool(currentlyShowing, bJapanese), smallTextWidth, nameHeight + (smallTextHeight*2), textBrush);
+			        	canvas.drawText(Globals.Characters.getPower(currentlyShowing, bJapanese), smallTextWidth, nameHeight + (smallTextHeight*4), textBrush);
+			        	String[] BioText = Globals.Characters.getBio(currentlyShowing, bJapanese);
+			        	miniTextBrush.setTextSize(scaleText(BioText[0], (mCanvasWidth/2)-smallTextWidth,999));
+			        	
+			        	for(int i = 0; i < 6; i++){
+			        		canvas.drawText(BioText[i], smallTextWidth, nameHeight + (smallTextHeight*6)+((miniTextBrush.getTextSize())*(i*2)), miniTextBrush);
+			        	}
+			        	
+	        			int squareBtnWidth = miscBitmaps[Globals.Graphics.MISC.LEFT_ARROW].getWidth();
+	        			int squareBtnHeight = miscBitmaps[Globals.Graphics.MISC.LEFT_ARROW].getHeight();
+	        			
+	        			if(currentlyShowing > 0)
+	        				canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.LEFT_ARROW], (float) (squareBtnWidth*0.5), (float) (mCanvasHeight-(squareBtnHeight*1.5)), null);
+	        			canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.OK_SQUARE_BTN], (float) (squareBtnWidth*2), (float) (mCanvasHeight-(squareBtnHeight*1.5)), null);
+	        			if(currentlyShowing < (Globals.Characters.COUNT-1))
+	        				canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.RIGHT_ARROW], (float) (squareBtnWidth*3.5), (float) (mCanvasHeight-(squareBtnHeight*1.5)), null);
+	        			
+	        			canvas.drawBitmap(characterPortraits[currentlyShowing][Globals.Characters.Graphics.FULL], centerX, 0, null);
+	        			
+	        			for(Integer i = 0; i < onPlayer; i++){
+	        				int scaledPortraitWidth = portraitWidth/2;
+	        				int scaledPortraitHeight = portraitHeight/2;
+	        				Bitmap scaledImage = Bitmap.createScaledBitmap(characterPortraits[pGameThread.mPlayers[i].characterID][Globals.Characters.Graphics.NEUTRAL], scaledPortraitWidth, scaledPortraitHeight, false);
+	        				
+	        				float X = (float) (mCanvasWidth - (scaledPortraitWidth*1.5));
+	        				float Y = (float) ((scaledPortraitHeight/2)+(i*scaledPortraitHeight*1.5));
+	        				canvas.drawBitmap(scaledImage, X, Y, null);
+
+				        	textBrush.getTextBounds("P1***", 0, 5, bounds);
+				        	
+				        	X -= bounds.width();
+				        	Y += (scaledPortraitHeight/2);
+				        	canvas.drawText("P" + ((Integer)(i+1)).toString(), X, Y, textBrush);
+	        			}
+        			}
+        			catch(Exception e){
+        				String WTFAmI = e.toString();
+	        			Log.e("SakiView.PlayerSelect", WTFAmI);
+        			}
         		}
         		else{
         			if(bScoreScreen)
@@ -366,13 +490,13 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 		        	//Portraits First
 		        	int X = 0;
 		        	int Y = ((mCanvasHeight - tileHeight)/2)-portraitHeight;
-		        	canvas.drawBitmap(characterPortraits[pGameThread.mPlayers[2].characterID], X, Y,  null);
-		        	canvas.drawBitmap(characterPortraits[pGameThread.mPlayers[3].characterID], X, Y+portraitHeight,  null);
+		        	canvas.drawBitmap(characterPortraits[pGameThread.mPlayers[2].characterID][pGameThread.mPlayers[2].currentState], X, Y,  null);
+		        	canvas.drawBitmap(characterPortraits[pGameThread.mPlayers[3].characterID][pGameThread.mPlayers[3].currentState], X, Y+portraitHeight,  null);
 		        	
 		        	X = mCanvasWidth - portraitWidth;
 		        	Y = ((mCanvasHeight - tileHeight)/2)-portraitHeight;
-		        	canvas.drawBitmap(characterPortraits[pGameThread.mPlayers[1].characterID], X, Y,  null);
-		        	canvas.drawBitmap(characterPortraits[pGameThread.mPlayers[0].characterID], X, Y+portraitHeight,  null);
+		        	canvas.drawBitmap(characterPortraits[pGameThread.mPlayers[1].characterID][pGameThread.mPlayers[1].currentState], X, Y,  null);
+		        	canvas.drawBitmap(characterPortraits[pGameThread.mPlayers[0].characterID][pGameThread.mPlayers[0].currentState], X, Y+portraitHeight,  null);
 		        	
 		        	//Scores
 		        	Paint textBrush = new Paint();
@@ -402,32 +526,78 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 		        	if(bScoreScreen){
 		        		X = 1;
 			        	Y = ((mCanvasHeight - tileHeight)/2)-portraitHeight+13;
-			        	if(winner == 2)
-			        		canvas.drawText("Winner", X, Y, textBrush);
-			        	else if(loser1 == 2 || loser2 == 2 || loser3 == 2)
-			        		canvas.drawText("Paying", X, Y, textBrush);
+			        	if(winner == 2){
+			        		if(bJapanese)
+			        			canvas.drawText("勝", X, Y, textBrush);
+			        		else
+			        			canvas.drawText("Winner", X, Y, textBrush);
+			        	}
+			        	else if(loser1 == 2 || loser2 == 2 || loser3 == 2){
+			        		if(bJapanese)
+			        			canvas.drawText("負", X, Y, textBrush);
+			        		else
+			        			canvas.drawText("Paying", X, Y, textBrush);
+			        	}
 			        	
-			        	if(winner == 3)
-			        		canvas.drawText("Winner", X, Y+portraitHeight, textBrush);
-			        	else if(loser1 == 3 || loser2 == 3 || loser3 == 3)
-			        		canvas.drawText("Paying", X, Y+portraitHeight, textBrush);
+			        	if(winner == 3){
+			        		if(bJapanese)
+			        			canvas.drawText("勝", X, Y+portraitHeight, textBrush);
+			        		else
+			        			canvas.drawText("Winner", X, Y+portraitHeight, textBrush);
+			        	}
+			        	else if(loser1 == 3 || loser2 == 3 || loser3 == 3){
+			        		if(bJapanese)
+			        			canvas.drawText("負", X, Y+portraitHeight, textBrush);
+			        		else
+			        			canvas.drawText("Paying", X, Y+portraitHeight, textBrush);
+			        	}
 			        	
 			        	X = mCanvasWidth - portraitWidth+1;
 			        	Y = ((mCanvasHeight - tileHeight)/2)-portraitHeight+13;
-			        	if(winner == 1)
-			        		canvas.drawText("Winner", X, Y, textBrush);
-			        	else if(loser1 == 1 || loser2 == 1 || loser3 == 1)
-			        		canvas.drawText("Paying", X, Y, textBrush);
-			        	if(winner == 0)
-			        		canvas.drawText("Winner", X, Y+portraitHeight, textBrush);
-			        	else if(loser1 == 0 || loser2 == 0 || loser3 == 0)
-			        		canvas.drawText("Paying", X, Y+portraitHeight, textBrush);
+			        	if(winner == 1){
+			        		if(bJapanese)
+			        			canvas.drawText("勝", X, Y, textBrush);
+			        		else
+			        			canvas.drawText("Winner", X, Y, textBrush);
+			        	}
+			        	else if(loser1 == 1 || loser2 == 1 || loser3 == 1){
+			        		if(bJapanese)
+			        			canvas.drawText("負", X, Y, textBrush);
+			        		else
+			        			canvas.drawText("Paying", X, Y, textBrush);
+			        	}
+			        	if(winner == 0){
+			        		if(bJapanese)
+			        			canvas.drawText("勝", X, Y+portraitHeight, textBrush);
+			        		else
+			        			canvas.drawText("Winner", X, Y+portraitHeight, textBrush);
+			        	}
+			        	else if(loser1 == 0 || loser2 == 0 || loser3 == 0){
+			        		if(bJapanese)
+			        			canvas.drawText("負", X, Y+portraitHeight, textBrush);
+			        		else
+			        			canvas.drawText("Paying", X, Y+portraitHeight, textBrush);
+			        	}
 			        	
 			        	float xOffset = textBrush.measureText("Points: " + String.valueOf(points));
-			        	canvas.drawText("Points: " + String.valueOf(points), centerX - xOffset, centerY/4, textBrush);
-			        	canvas.drawText("Fu: " + String.valueOf(pGameThread.mPlayers[winner].myHand.fu), centerX - xOffset, (centerY/4)+14, textBrush);
-			        	canvas.drawText("Han: " + String.valueOf(pGameThread.mPlayers[winner].myHand.han), centerX - xOffset, (centerY/4)+28, textBrush);
-			        	canvas.drawText("Yaku: ", centerX - xOffset, (centerY/4)+42, textBrush);
+			        	if(bJapanese){
+			        		canvas.drawText("点: " + String.valueOf(points), centerX - xOffset, centerY/4, textBrush);
+			        		canvas.drawText("はん: " + String.valueOf(pGameThread.mPlayers[winner].myHand.han), centerX - xOffset, (centerY/4)+14, textBrush);
+			        		canvas.drawText("役: ", centerX - xOffset, (centerY/4)+42, textBrush);
+				        	if(pGameThread.mPlayers[winner].myHand.han >= 5)
+				        		canvas.drawText(Globals.LimitHandToString(pGameThread.mPlayers[winner].myHand.han, bJapanese), centerX - xOffset, (centerY/4)+28, textBrush);
+				        	else
+				        		canvas.drawText("ふ: " + String.valueOf(pGameThread.mPlayers[winner].myHand.fu), centerX - xOffset, (centerY/4)+28, textBrush);
+			        	}
+			        	else{
+			        		canvas.drawText("Points: " + String.valueOf(points), centerX - xOffset, centerY/4, textBrush);
+			        		canvas.drawText("Han: " + String.valueOf(pGameThread.mPlayers[winner].myHand.han), centerX - xOffset, (centerY/4)+14, textBrush);
+			        		canvas.drawText("Yaku: ", centerX - xOffset, (centerY/4)+42, textBrush);
+				        	if(pGameThread.mPlayers[winner].myHand.han >= 5)
+				        		canvas.drawText(Globals.LimitHandToString(pGameThread.mPlayers[winner].myHand.han, bJapanese), centerX - xOffset, (centerY/4)+28, textBrush);
+				        	else
+				        		canvas.drawText("Fu: " + String.valueOf(pGameThread.mPlayers[winner].myHand.fu), centerX - xOffset, (centerY/4)+28, textBrush);
+			        	}
 			        	
 			        	ArrayList<Tile> Dora = pGameThread.mTable.getDora();
 			        	if(pGameThread.mPlayers[winner].riichi){
@@ -534,21 +704,21 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 					        		//All Others
 					        		int playerFrom = pGameThread.mPlayers[winner].myHand.melds[meldIdx][5];
 				        			int bmpIdx = pGameThread.mPlayers[winner].myHand.rawHand[pGameThread.mPlayers[winner].myHand.melds[meldIdx][1]].rawNumber;
-				        			if(playerFrom == 3){
+				        			if(playerFrom == ((winner+3)%4)){
 				        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y+(miniTileHeight-miniTileWidth),  null);
 				        				bmpIdx = pGameThread.mPlayers[winner].myHand.rawHand[pGameThread.mPlayers[winner].myHand.melds[meldIdx][2]].rawNumber;
 				        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileHeight, Y,  null);
 				        				bmpIdx = pGameThread.mPlayers[winner].myHand.rawHand[pGameThread.mPlayers[winner].myHand.melds[meldIdx][3]].rawNumber;
 				        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileHeight+miniTileWidth, Y,  null);
 				        			}
-				        			if(playerFrom == 2){
+				        			if(playerFrom == ((winner+2)%4)){
 				        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X, Y,  null);
 				        				bmpIdx = pGameThread.mPlayers[winner].myHand.rawHand[pGameThread.mPlayers[winner].myHand.melds[meldIdx][2]].rawNumber;
 				        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X+miniTileWidth, Y+(miniTileHeight-miniTileWidth),  null);
 				        				bmpIdx = pGameThread.mPlayers[winner].myHand.rawHand[pGameThread.mPlayers[winner].myHand.melds[meldIdx][3]].rawNumber;
 				        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileWidth+miniTileHeight, Y,  null);
 				        			}
-				        			if(playerFrom == 1){
+				        			if(playerFrom == ((winner+1)%4)){
 				        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X, Y,  null);
 				        				bmpIdx = pGameThread.mPlayers[winner].myHand.rawHand[pGameThread.mPlayers[winner].myHand.melds[meldIdx][2]].rawNumber;
 				        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileWidth, Y,  null);
@@ -560,7 +730,7 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 				        	}
 			        	}
 			        	
-			        	canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC_OK_BTN], centerX - (miscBitmaps[Globals.Graphics.MISC_OK_BTN].getWidth()/2), mCanvasHeight - miscBitmaps[Globals.Graphics.MISC_OK_BTN].getHeight()-1, null);
+			        	canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.OK_BTN], centerX - (miscBitmaps[Globals.Graphics.MISC.OK_BTN].getWidth()/2), mCanvasHeight - miscBitmaps[Globals.Graphics.MISC.OK_BTN].getHeight()-1, null);
 			        	
 			        	return;
 	        		}
@@ -579,16 +749,19 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 		        	//Center Info
 		        	X = centerX - (miniTileWidth*3);
 		        	Y = centerY - (miniTileWidth*3);
-		        	canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC_CENTER], X, Y, null);
+		        	canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.CENTER], X, Y, null);
 		        	
-		        	X = (int) (centerX - Math.round(miniTileWidth * 1.0));
+		        	X = (int) (centerX - (miniTileWidth*2.5));
 		        	Y = centerY + (miniTileWidth);
 		        	temp = pGameThread.mTable.wallCount();
 		        	canvas.drawText(temp.toString(), X, Y, textBrush);
 		        	
-		        	X = (int) (centerX + Math.round(miniTileWidth * 1.0));
+		        	X = (int) (centerX + Math.round(miniTileWidth * 1.5));
 		        	Y = centerY + (miniTileWidth);
 		        	canvas.drawText(Globals.windToString(pGameThread.curWind), X, Y, textBrush);
+		        	
+		        	Y = (int) (Y+textBrush.getTextSize());
+		        	canvas.drawText(String.valueOf(pGameThread.curRound), X, Y, textBrush);
 		        	
 		        	X = (int) (centerX - (miniTileWidth * 2));
 		        	Y = (int) (centerY - (miniTileWidth * 1.5));
@@ -604,12 +777,14 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 		        	//Sticks, furiten, and other misc
 		        	Paint redTextBrush = new Paint();
 		        	redTextBrush.setColor(Color.RED);
-		        	redTextBrush.setTextSize(16.0f);
+		        	redTextBrush.setTextSize(10.0f);
 		        	
 		        	X = 0;
 		        	Y = mCanvasHeight-16;
 		        	if(pGameThread.mPlayers[0].myHand.inFuriten)
 		        		canvas.drawText("FURITEN", X, Y, redTextBrush);
+		        	else if(pGameThread.mPlayers[0].powerActivated[Globals.Powers.invisibility])
+		        		canvas.drawText("INVISIBLE", X, Y, redTextBrush);
 		        	
 		        	//Players Hand
 		        	int HandSize = pGameThread.mPlayers[0].myHand.activeHandSize;
@@ -617,47 +792,54 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 		        	Y = (mCanvasHeight - tileHeight) - 1;
 		        	//float startPos = (mCanvasWidth-(29*HandSize))/2;
 		        	//Globals.myAssert(startPos > 0);
-		        	for(int i = 0; i < pGameThread.mPlayers[0].myHand.activeHandSize; i++){
-		        		int bmpIdx = pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.activeHand[i]].rawNumber;
-		        		if(i == tileSelected)
-		        			canvas.drawBitmap(TileBMPsUser[bmpIdx], X+(tileWidth*i), Y - 5,  null);
-		        		else
-		        			canvas.drawBitmap(TileBMPsUser[bmpIdx], X+(tileWidth*i), Y,  null);
-		        	}
+		        	//if(!pGameThread.mPlayers[0].powerActivated[Globals.Powers.invisibility]){
+			        	for(int i = 0; i < pGameThread.mPlayers[0].myHand.activeHandSize; i++){
+			        		int bmpIdx = pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.activeHand[i]].rawNumber;
+			        		if(i == tileSelected)
+			        			canvas.drawBitmap(TileBMPsUser[bmpIdx], X+(tileWidth*i), Y - 5,  null);
+			        		else
+			        			canvas.drawBitmap(TileBMPsUser[bmpIdx], X+(tileWidth*i), Y,  null);
+			        	}
+		        	//}
 		        	
 		        	//AI Hands
 		        	HandSize = pGameThread.mPlayers[1].myHand.activeHandSize;
 		        	X = mCanvasWidth - portraitWidth - miniTileHeight - 1;
 		        	Y = ((mCanvasHeight - tileHeight)/2)+portraitHeight -  miniTileWidth;
 	
-		        	for(int i = 0; i < pGameThread.mPlayers[1].myHand.activeHandSize; i++){
-		        		int bmpIdx = pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.activeHand[i]].rawNumber;
-		        		if(!bDebug)
-		        			bmpIdx = 0;
-		        		canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y-(i*miniTileWidth)-i,  null);
+		        	if(!(pGameThread.mPlayers[1].powerActivated[Globals.Powers.invisibility] && bPowers)){
+			        	for(int i = 0; i < pGameThread.mPlayers[1].myHand.activeHandSize; i++){
+			        		int bmpIdx = pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.activeHand[i]].rawNumber;
+			        		if(!bDebug && !showHand[1])
+			        			bmpIdx = 0;
+			        		canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y-(i*miniTileWidth)-i,  null);
+			        	}
 		        	}
 		        	
 		        	HandSize = pGameThread.mPlayers[2].myHand.activeHandSize;
 		        	X = centerX + ((HandSize*(miniTileWidth+1))/2);
 		        	Y = 1;
 		        	
-		        	for(int i = 0; i < pGameThread.mPlayers[2].myHand.activeHandSize; i++){
-		        		int bmpIdx = pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.activeHand[i]].rawNumber;
-		        		if(!bDebug)
-		        			bmpIdx = 0;
-		        		canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X-(i*miniTileWidth)-i, Y, null);
+		        	if(!(pGameThread.mPlayers[2].powerActivated[Globals.Powers.invisibility] && bPowers)){
+			        	for(int i = 0; i < pGameThread.mPlayers[2].myHand.activeHandSize; i++){
+			        		int bmpIdx = pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.activeHand[i]].rawNumber;
+			        		if(!bDebug && !showHand[2])
+			        			bmpIdx = 0;
+			        		canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X-(i*miniTileWidth)-i, Y, null);
+			        	}
 		        	}
 		        	
 		        	HandSize = pGameThread.mPlayers[3].myHand.activeHandSize;
 		        	X = portraitWidth + 1;
 		        	Y = ((mCanvasHeight - tileHeight)/2)- portraitHeight;
 		        	
-		        	
-		        	for(int i = 0; i < pGameThread.mPlayers[3].myHand.activeHandSize; i++){
-		        		int bmpIdx = pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.activeHand[i]].rawNumber;
-		        		if(!bDebug)
-		        			bmpIdx = 0;
-		        		canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx],  X, Y+(i*miniTileWidth)+i, null);
+		        	if(!(pGameThread.mPlayers[3].powerActivated[Globals.Powers.invisibility] && bPowers)){
+			        	for(int i = 0; i < pGameThread.mPlayers[3].myHand.activeHandSize; i++){
+			        		int bmpIdx = pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.activeHand[i]].rawNumber;
+			        		if(!bDebug && !showHand[3])
+			        			bmpIdx = 0;
+			        		canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx],  X, Y+(i*miniTileWidth)+i, null);
+			        	}
 		        	}
 		        	
 		        	//Discards
@@ -667,25 +849,27 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 		        	int row = 0;
 		        	int column = 0;
 		        	boolean riichiTileUsed = false;
-		        	for(int i = 0; i < discards.size(); i++){
-		        		float PosX = (centerX - ((float)(miniTileWidth*3))) + (column * miniTileWidth);
-		        		float PosY = (centerY + ((float)(miniTileWidth*3))) + (row * miniTileHeight) + row;
-		        		if(riichiTileUsed)
-		        			PosX += miniTileHeight-miniTileWidth;
-		        		if(i == riichiTile){
-		        			riichiTileUsed = true;
-		        			canvas.drawBitmap(TileBMPsSouthRotated[discards.get(i).rawNumber], PosX, PosY, null);
-		        		}
-		        		else
-		        			canvas.drawBitmap(TileBMPs50PercentUser[discards.get(i).rawNumber], PosX, PosY, null);
-		        		
-		        		column++;
-		        		if(column == 6){
-		        			column = 0;
-		        			riichiTileUsed = false;
-		        			row++;
-		        		}
-		        	}
+		        	//if(!pGameThread.mPlayers[0].powerActivated[Globals.Powers.invisibility]){
+			        	for(int i = 0; i < discards.size(); i++){
+			        		float PosX = (centerX - ((float)(miniTileWidth*3))) + (column * miniTileWidth);
+			        		float PosY = (centerY + ((float)(miniTileWidth*3))) + (row * miniTileHeight) + row;
+			        		if(riichiTileUsed)
+			        			PosX += miniTileHeight-miniTileWidth;
+			        		if(i == riichiTile){
+			        			riichiTileUsed = true;
+			        			canvas.drawBitmap(TileBMPsSouthRotated[discards.get(i).rawNumber], PosX, PosY, null);
+			        		}
+			        		else
+			        			canvas.drawBitmap(TileBMPs50PercentUser[discards.get(i).rawNumber], PosX, PosY, null);
+			        		
+			        		column++;
+			        		if(column == 6){
+			        			column = 0;
+			        			riichiTileUsed = false;
+			        			row++;
+			        		}
+			        	}
+		        	//}
 		        	
 		        	discards = pGameThread.mTable.getDiscards(1);
 		        	riichiTile = pGameThread.mTable.getRiichiTile(1);
@@ -693,24 +877,30 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 		        	row = 0;
 		        	column = 0;
 		        	riichiTileUsed = false;
-		        	for(int i = 0; i < discards.size(); i++){
-		        		float PosX = (centerX + ((float)(miniTileWidth*3))) + (row * miniTileHeight);
-		        		float PosY = (centerY + ((float)(miniTileWidth*3))) + (column * -miniTileWidth) - miniTileWidth;
-		        		if(riichiTileUsed)
-		        			PosY -= (miniTileHeight-miniTileWidth);
-		        		if(i == riichiTile){
-		        			riichiTileUsed = true;
-		        			canvas.drawBitmap(TileBMPsWestRotated[discards.get(i).rawNumber], PosX, PosY-(miniTileHeight-miniTileWidth), null);
-		        		}
-		        		else
-		        			canvas.drawBitmap(TileBMPsSouthRotated[discards.get(i).rawNumber], PosX, PosY, null);
-		        		
-		        		column++;
-		        		if(column == 6){
-		        			column = 0;
-		        			riichiTileUsed = false;
-		        			row++;
-		        		}
+		        	if(!(pGameThread.mPlayers[1].powerActivated[Globals.Powers.invisibility] && bPowers)){
+			        	for(int i = 0; i < discards.size(); i++){
+			        		boolean bEnlarge = (pGameThread.curPlayer == 1)&&(i==(discards.size()-1))&&(needButtons[PON_BTN] || needButtons[CHI_BTN] || needButtons[RON_BTN]);
+			        		float PosX = (centerX + ((float)(miniTileWidth*3))) + (row * miniTileHeight);
+			        		float PosY = (centerY + ((float)(miniTileWidth*3))) + (column * -miniTileWidth) - miniTileWidth;
+			        		if(riichiTileUsed)
+			        			PosY -= (miniTileHeight-miniTileWidth);
+			        		if(i == riichiTile){
+			        			riichiTileUsed = true;
+			        			canvas.drawBitmap(TileBMPsWestRotated[discards.get(i).rawNumber], PosX, PosY-(miniTileHeight-miniTileWidth), null);
+			        		}
+			        		else
+			        			canvas.drawBitmap(TileBMPsSouthRotated[discards.get(i).rawNumber], PosX, PosY, null);
+			        		
+			        		if(bEnlarge)
+		        				canvas.drawBitmap(TileBMPsUser[discards.get(i).rawNumber], centerX-(tileWidth/2), centerY, null);
+			        		
+			        		column++;
+			        		if(column == 6){
+			        			column = 0;
+			        			riichiTileUsed = false;
+			        			row++;
+			        		}
+			        	}
 		        	}
 		        	
 		        	discards = pGameThread.mTable.getDiscards(2);
@@ -719,26 +909,32 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 		        	row = 0;
 		        	column = 0;
 		        	riichiTileUsed = false;
-		        	for(int i = 0; i < discards.size(); i++){
-		        		float PosX = (centerX + ((float)(miniTileWidth*3))) + (column * -miniTileWidth) - miniTileWidth;
-		        		float PosY = (centerY - ((float)(miniTileWidth*3))) + (row * -miniTileHeight) - miniTileHeight - 1;
-		        		/*float PosX = (centerX + 45.0f) + (row * 19.0f);
-		        		float PosY = (centerY + 45.0f) + (column * -15.0f) - 14.0f;*/
-		        		if(riichiTileUsed)
-		        			PosX -= (miniTileHeight-miniTileWidth);
-		        		if(i == riichiTile){
-		        			riichiTileUsed = true;
-		        			canvas.drawBitmap(TileBMPsSouthRotated[discards.get(i).rawNumber], PosX, PosY, null);
-		        		}
-		        		else
-		        			canvas.drawBitmap(TileBMPsWestRotated[discards.get(i).rawNumber], PosX, PosY, null);
-		        		
-		        		column++;
-		        		if(column == 6){
-		        			column = 0;
-		        			riichiTileUsed = false;
-		        			row++;
-		        		}
+		        	if(!(pGameThread.mPlayers[2].powerActivated[Globals.Powers.invisibility] && bPowers)){
+			        	for(int i = 0; i < discards.size(); i++){
+			        		boolean bEnlarge = (pGameThread.curPlayer == 2)&&(i==(discards.size()-1))&&(needButtons[PON_BTN] || needButtons[CHI_BTN] || needButtons[RON_BTN]);
+			        		float PosX = (centerX + ((float)(miniTileWidth*3))) + (column * -miniTileWidth) - miniTileWidth;
+			        		float PosY = (centerY - ((float)(miniTileWidth*3))) + (row * -miniTileHeight) - miniTileHeight - 1;
+			        		/*float PosX = (centerX + 45.0f) + (row * 19.0f);
+			        		float PosY = (centerY + 45.0f) + (column * -15.0f) - 14.0f;*/
+			        		if(riichiTileUsed)
+			        			PosX -= (miniTileHeight-miniTileWidth);
+			        		if(i == riichiTile){
+			        			riichiTileUsed = true;
+			        			canvas.drawBitmap(TileBMPsSouthRotated[discards.get(i).rawNumber], PosX, PosY, null);
+			        		}
+			        		else
+			        			canvas.drawBitmap(TileBMPsWestRotated[discards.get(i).rawNumber], PosX, PosY, null);
+			        		
+			        		if(bEnlarge)
+		        				canvas.drawBitmap(TileBMPsUser[discards.get(i).rawNumber], centerX-(tileWidth/2), centerY, null);
+		        				
+			        		column++;
+			        		if(column == 6){
+			        			column = 0;
+			        			riichiTileUsed = false;
+			        			row++;
+			        		}
+			        	}
 		        	}
 		        	
 		        	discards = pGameThread.mTable.getDiscards(3);
@@ -747,26 +943,32 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 		        	row = 0;
 		        	column = 0;
 		        	riichiTileUsed = false;
-		        	for(int i = 0; i < discards.size(); i++){
-		        		float PosX = (centerX - ((float)(miniTileWidth*3))) + (row * -miniTileHeight) - miniTileHeight;
-		        		float PosY = (centerY - ((float)(miniTileWidth*3))) + (column * miniTileWidth) /*- 18.0f*/;
-		        		if(riichiTileUsed)
-		        			PosY += miniTileHeight-miniTileWidth;
-		        		if(i == riichiTile){
-		        			riichiTileUsed = true;
-		        			canvas.drawBitmap(TileBMPsWestRotated[discards.get(i).rawNumber], PosX, PosY, null);
-		        		}
-		        		else
-		        			canvas.drawBitmap(TileBMPsNorthRotated[discards.get(i).rawNumber], PosX, PosY, null);
-		        		
-		        		column++;
-		        		if(column == 6){
-		        			column = 0;
-		        			riichiTileUsed = false;
-		        			row++;
-		        		}
+		        	if(!(pGameThread.mPlayers[3].powerActivated[Globals.Powers.invisibility] && bPowers)){
+			        	for(int i = 0; i < discards.size(); i++){
+			        		boolean bEnlarge = (pGameThread.curPlayer == 3)&&(i==(discards.size()-1))&&(needButtons[PON_BTN] || needButtons[CHI_BTN] || needButtons[RON_BTN]);
+			        		float PosX = (centerX - ((float)(miniTileWidth*3))) + (row * -miniTileHeight) - miniTileHeight;
+			        		float PosY = (centerY - ((float)(miniTileWidth*3))) + (column * miniTileWidth) /*- 18.0f*/;
+			        		if(riichiTileUsed)
+			        			PosY += miniTileHeight-miniTileWidth;
+			        		if(i == riichiTile){
+			        			riichiTileUsed = true;
+			        			canvas.drawBitmap(TileBMPsWestRotated[discards.get(i).rawNumber], PosX, PosY, null);
+			        		}
+			        		else
+			        			canvas.drawBitmap(TileBMPsNorthRotated[discards.get(i).rawNumber], PosX, PosY, null);
+			        		
+			        		if(bEnlarge)
+		        				canvas.drawBitmap(TileBMPsUser[discards.get(i).rawNumber], centerX-(tileWidth/2), centerY, null);
+		        				
+			        		column++;
+			        		if(column == 6){
+			        			column = 0;
+			        			riichiTileUsed = false;
+			        			row++;
+			        		}
+			        	}
 		        	}
-		        	
+			        	
 		        	//Player Melds
 		        	int numberOfMelds = pGameThread.mPlayers[0].myHand.numberOfMelds;
 		        	if(numberOfMelds > 0){
@@ -1116,14 +1318,13 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 		        	
 		        	
 		        	if(bNeedChiList){
-		        		//Box is 100x64
 		        		int setSize = (2*tileWidth)+3;
 		        		Paint blackBrush = new Paint();
 		        		blackBrush.setColor(Color.BLACK);
 		        		Paint whiteBrush = new Paint();
 		        		whiteBrush.setColor(Color.WHITE);
-		        		canvas.drawRect(centerX - 17 -  (int)(setSize * 1.5), centerY - 24, centerX + 17 + (int)(setSize * 1.5), centerY + 22, blackBrush);
-		        		canvas.drawRect(centerX - 15 - (int)(setSize * 1.5), centerY - 22, centerX + 15 + (int)(setSize * 1.5), centerY + 20, whiteBrush);
+		        		canvas.drawRect(centerX - 17 -  (int)(setSize * 1.5), centerY - tileHeight, centerX + 17 + (int)(setSize * 1.5), centerY + tileHeight, blackBrush);
+		        		canvas.drawRect(centerX - 15 - (int)(setSize * 1.5), centerY - tileHeight + 2, centerX + 15 + (int)(setSize * 1.5), centerY + tileHeight - 2, whiteBrush);
 		        		Globals.myAssert(chiList.size() >= 2 && chiList.size() <= 3);
 		        		//canvas.drawBitmap(Buttons[PASS_BTN], centerX - 10, centerY + 10, null);
 		        		float startX = 0;
@@ -1135,9 +1336,9 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 		        		}
 		        		for(int i = 0; i < chiList.size(); i++){
 		        			int bmpIdx = pGameThread.mPlayers[0].myHand.rawHand[chiList.get(i).tiles[0]].rawNumber;
-		        			canvas.drawBitmap(TileBMPsUser[bmpIdx], startX+(29*0), centerY - 20,  null);
+		        			canvas.drawBitmap(TileBMPsUser[bmpIdx], startX, centerY - (tileHeight/2),  null);
 		        			bmpIdx = pGameThread.mPlayers[0].myHand.rawHand[chiList.get(i).tiles[1]].rawNumber;
-		        			canvas.drawBitmap(TileBMPsUser[bmpIdx], startX+(29*1), centerY - 20,  null);
+		        			canvas.drawBitmap(TileBMPsUser[bmpIdx], startX+tileWidth, centerY - (tileHeight/2),  null);
 		        			//canvas.drawBitmap(TileBMPsUser[chiList.get(i).tiles[2]], startX+(29*2), centerY - 27,  null);
 		        			startX += setSize + 10;
 		        		}
@@ -1145,39 +1346,39 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 		        	
 		        	if(callToShow != Globals.CMD.PASS){
 		        		if(playerCalling == 0){
-		        			int bubbleWidth = miscBitmaps[Globals.Graphics.MISC_BUBBLE_RIGHT].getWidth();
-		        			int bubbleHeight = miscBitmaps[Globals.Graphics.MISC_BUBBLE_RIGHT].getWidth();
+		        			int bubbleWidth = miscBitmaps[Globals.Graphics.MISC.BUBBLE_RIGHT].getWidth();
+		        			int bubbleHeight = miscBitmaps[Globals.Graphics.MISC.BUBBLE_RIGHT].getWidth();
 		        			X = mCanvasWidth - portraitWidth - bubbleWidth;
 				        	Y = ((mCanvasHeight - tileHeight)/2)/*-portraitHeight*/;
-		    	        	canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC_BUBBLE_RIGHT], X, Y,  null);
+		    	        	canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.BUBBLE_RIGHT], X, Y,  null);
 		    	        	canvas.drawText(Globals.cmdToString(callToShow, bJapanese), X+(bubbleWidth/4), Y+(bubbleHeight/3), textBrush);
 		        		}
 		        		else if(playerCalling == 1){
-		        			int bubbleWidth = miscBitmaps[Globals.Graphics.MISC_BUBBLE_RIGHT].getWidth();
-		        			int bubbleHeight = miscBitmaps[Globals.Graphics.MISC_BUBBLE_RIGHT].getWidth();
+		        			int bubbleWidth = miscBitmaps[Globals.Graphics.MISC.BUBBLE_RIGHT].getWidth();
+		        			int bubbleHeight = miscBitmaps[Globals.Graphics.MISC.BUBBLE_RIGHT].getWidth();
 		        			X = mCanvasWidth - portraitWidth - bubbleWidth;
 		        			Y = ((mCanvasHeight - tileHeight)/2)-portraitHeight;
-		    	        	canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC_BUBBLE_RIGHT], X, Y,  null);
+		    	        	canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.BUBBLE_RIGHT], X, Y,  null);
 		    	        	canvas.drawText(Globals.cmdToString(callToShow, bJapanese), X+(bubbleWidth/4), Y+(bubbleHeight/3), textBrush);
 		        		}
 		        		else if(playerCalling == 2){
-		        			int bubbleWidth = miscBitmaps[Globals.Graphics.MISC_BUBBLE_RIGHT].getWidth();
-		        			int bubbleHeight = miscBitmaps[Globals.Graphics.MISC_BUBBLE_RIGHT].getWidth();
+		        			int bubbleWidth = miscBitmaps[Globals.Graphics.MISC.BUBBLE_RIGHT].getWidth();
+		        			int bubbleHeight = miscBitmaps[Globals.Graphics.MISC.BUBBLE_RIGHT].getWidth();
 		        			X = portraitWidth;
 		        			Y = ((mCanvasHeight - tileHeight)/2)-portraitHeight;
-		    	        	canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC_BUBBLE_LEFT], X, Y,  null);
+		    	        	canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.BUBBLE_LEFT], X, Y,  null);
 		    	        	canvas.drawText(Globals.cmdToString(callToShow, bJapanese), X+(bubbleWidth/4), Y+(bubbleHeight/3), textBrush);
 		        		}
 		        		else if(playerCalling == 3){
-		        			int bubbleWidth = miscBitmaps[Globals.Graphics.MISC_BUBBLE_RIGHT].getWidth();
-		        			int bubbleHeight = miscBitmaps[Globals.Graphics.MISC_BUBBLE_RIGHT].getWidth();
+		        			int bubbleWidth = miscBitmaps[Globals.Graphics.MISC.BUBBLE_RIGHT].getWidth();
+		        			int bubbleHeight = miscBitmaps[Globals.Graphics.MISC.BUBBLE_RIGHT].getWidth();
 		        			X = portraitWidth;
 		        			Y = ((mCanvasHeight - tileHeight)/2)/*-portraitHeight*/;
-		    	        	canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC_BUBBLE_LEFT], X, Y,  null);
+		    	        	canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.BUBBLE_LEFT], X, Y,  null);
 		    	        	canvas.drawText(Globals.cmdToString(callToShow, bJapanese), X+(bubbleWidth/4), Y+(bubbleHeight/3), textBrush);
 		        		}
 		        		callToShow = Globals.CMD.PASS;
-		        		showHand[playerCalling] = false;
+		        		//showHand[playerCalling] = false;
 		        	}
         		}
         	}
@@ -1252,7 +1453,7 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         public int handleChiListTouch(float x, float y){
         	int setSize = (2*tileWidth)+3;
     		//canvas.drawBitmap(Buttons[PASS_BTN], centerX - 10, centerY + 10, null);
-        	if(y < (centerY-16) || y > (centerY+16))
+        	if(y < (centerY-(tileHeight/2)) || y > (centerY+(tileHeight/2)))
         		return -1;
         	
     		float startX = 0;
@@ -1277,21 +1478,27 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         
         public boolean handleTouch(float x, float y){
         	if(bTitleScreen){
-    			int logoHeight = miscBitmaps[Globals.Graphics.MISC_LOGO].getHeight();
-	        	int btnWidth = miscBitmaps[Globals.Graphics.MISC_START_BTN].getWidth();
-	        	int btnHeight = miscBitmaps[Globals.Graphics.MISC_START_BTN].getHeight();
+    			int logoHeight = miscBitmaps[Globals.Graphics.MISC.LOGO].getHeight();
+	        	int btnWidth = miscBitmaps[Globals.Graphics.MISC.START_BTN].getWidth();
+	        	int btnHeight = miscBitmaps[Globals.Graphics.MISC.START_BTN].getHeight();
         		if((x > (centerX - (btnWidth/2))) && (x < (centerX - (btnWidth/2) + btnWidth))){
         			if((y > ((centerY/2)+logoHeight+25)) && (y < ((centerY/2)+logoHeight+25+btnHeight))){
         				bTitleScreen = false;
+        				bPlayerSelect = true;
+        				currentlyShowing = 0;
+        				onPlayer = 0;
         				return true;
         			}
         				
         		}
 	        	return false;
         	}
+        	else if(bPlayerSelect){
+        		return false;
+        	}
         	else if(bScoreScreen){
-        		if((x > (centerX - (miscBitmaps[Globals.Graphics.MISC_OK_BTN].getWidth()/2))) && (x < (centerX + miscBitmaps[Globals.Graphics.MISC_OK_BTN].getWidth()))){
-        			if(y > (mCanvasHeight - miscBitmaps[Globals.Graphics.MISC_OK_BTN].getHeight()-1)){
+        		if((x > (centerX - (miscBitmaps[Globals.Graphics.MISC.OK_BTN].getWidth()/2))) && (x < (centerX + miscBitmaps[Globals.Graphics.MISC.OK_BTN].getWidth()))){
+        			if(y > (mCanvasHeight - miscBitmaps[Globals.Graphics.MISC.OK_BTN].getHeight()-1)){
         				bScoreScreen = false;
         				pGameThread.resumeThread();
         				return true;
@@ -1305,7 +1512,7 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 	        		return false;
 	        	cursorX = Math.round(x);
 	        	cursorY = Math.round(y);
-	        	Log.i("XY=", String.valueOf(x)+"," + String.valueOf(y));
+	        	//Log.i("XY=", String.valueOf(x)+"," + String.valueOf(y));
 	        	int tileIdx = coordinatesToTile(x, y);
 	        	if(tileSelected != tileIdx){
 	        		tileSelected = tileIdx;
@@ -1328,6 +1535,55 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         	return -1;
         }
         
+        /**
+         * In most cases we will just defer to handleTouch
+         */
+        public boolean handleSingleTap(float x, float y){
+        	if(bTitleScreen){
+    			handleTouch(x, y);
+        	}
+        	else if(bPlayerSelect){
+        		int squareBtnWidth = miscBitmaps[Globals.Graphics.MISC.LEFT_ARROW].getWidth();
+    			int squareBtnHeight = miscBitmaps[Globals.Graphics.MISC.LEFT_ARROW].getHeight();
+    			
+    			if((y >= (mCanvasHeight-(squareBtnHeight*1.5))) && (y <= (mCanvasHeight-(squareBtnHeight*0.5)))){
+    				if((x >= (squareBtnWidth*0.5)) && (x <= (squareBtnWidth*1.5))){
+    					if(currentlyShowing > 0){
+    						//Left
+    						currentlyShowing--;
+    						return true;
+    					}
+    				}
+    				if((x >= (squareBtnWidth*2)) && (x <= (squareBtnWidth*3))){
+    					//OK Button
+    					if(pGameThread.setCharacter(onPlayer, currentlyShowing))
+    						onPlayer++;
+    					if(onPlayer > 3){
+    						if(!pGameThread.isAlive()){
+    							pGameThread.start();
+    						}
+    						bPlayerSelect = false;
+    					}
+    					return true;
+    				}
+    				if((x >= (squareBtnWidth*3.5)) && (x <= (squareBtnWidth*4.5))){
+    					if(currentlyShowing < (Globals.Characters.COUNT-1)){
+    						//Right
+    						currentlyShowing++;
+    						return true;
+    					}
+    				}
+    			}
+        	}
+        	else if(bScoreScreen){
+        		return handleTouch(x, y);
+        	}
+        	else{
+	        	return handleTouch(x, y);
+        	}
+        	return false;
+        }
+        
         public int handleDiscard(float x, float y){
         	return coordinatesToTile(x, y);
         }
@@ -1335,10 +1591,6 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         public void setGameThread(MainGameThread useThis){
         	Globals.myAssert(useThis != null);
         	pGameThread = useThis;
-        }
-        
-        void scaleAll(float widthScaler, float heightScaler){
-        	
         }
         
        /* void transparify(Bitmap thisBitmap){
@@ -1359,6 +1611,21 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         			return tileIdx;
         	}
         	return -1;
+        }
+        
+        private float scaleText(String textToPrint, int xMax, int yMax){
+        	float ret = 8.0f;
+        	Rect bounds = new Rect();
+        	Paint tempBrush = new Paint();
+        	tempBrush.setTextSize(ret);
+        	tempBrush.getTextBounds(textToPrint, 0, textToPrint.length(), bounds);
+        	while(bounds.width() < xMax && bounds.height() < yMax && ret < 33.0f){ //Arbitrary Max
+        		ret += 1.0f;
+        		tempBrush.setTextSize(ret);
+            	tempBrush.getTextBounds(textToPrint, 0, textToPrint.length(), bounds);
+        	}
+
+        	return (ret - 1.0f);
         }
        
 	}
@@ -1419,8 +1686,8 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 					return true;
 			}
 			public boolean onSingleTapConfirmed(MotionEvent e){
-				if(thread.bTitleScreen || thread.bScoreScreen){
-					if(thread.handleTouch(e.getX(), e.getY()))
+				if(thread.bTitleScreen || thread.bScoreScreen || thread.bPlayerSelect){
+					if(thread.handleSingleTap(e.getX(), e.getY()))
 						thread.triggerRedraw();
 				}
 				else if(bNeedCallInput || bNeedDiscardInput){
@@ -1521,9 +1788,9 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 		
 		//This seems really random but we need to wait for the surface to be created 
 		//and drawn before we start the game logic
-		if(!pGameThread.isAlive()){
+		/*if(!pGameThread.isAlive()){
 			pGameThread.start();
-		}
+		}*/
 	}
 
 	 /*
@@ -1543,6 +1810,7 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
     			}
     		});
     		thread.setGameThread(pGameThread);
+    		updatePreferences(PreferenceManager.getDefaultSharedPreferences(getContext()));
     		thread.doStart();
     	}
     	/**
@@ -1638,16 +1906,24 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
     }
     
     public void finish(){
-    	try{
-    		pGameThread.mPlayers[1].myAI.join();
-    		pGameThread.mPlayers[2].myAI.join();
-    		pGameThread.mPlayers[3].myAI.join();
-    		pGameThread.join();
-    		thread.join();
-    	}
-    	catch(Exception e){
-    		String WTFAmI = e.toString();
-			Log.e("SakiView.finish", WTFAmI);
+    	boolean retry = true;
+    	while(retry){
+	    	try{
+	    		pGameThread.mPlayers[1].myAI.terminateThread();
+	    		pGameThread.mPlayers[1].myAI.join();
+	    		pGameThread.mPlayers[2].myAI.terminateThread();
+	    		pGameThread.mPlayers[2].myAI.join();
+	    		pGameThread.mPlayers[3].myAI.terminateThread();
+	    		pGameThread.mPlayers[3].myAI.join();
+	    		pGameThread.terminateThread();
+	    		pGameThread.join();
+	    		thread.join();
+	    		retry = false;
+	    	}
+	    	catch(Exception e){
+	    		String WTFAmI = e.toString();
+				Log.e("SakiView.finish", WTFAmI);
+	    	}
     	}
     }
     
@@ -1660,5 +1936,20 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
     	thread.bDebug = debug;
     	thread.triggerRedraw();
     }
+    
+    public void updatePreferences(SharedPreferences myPrefs){
+    	Map<String, ?> prefMap = myPrefs.getAll();
+    	//Log.i("Contains:", String.valueOf(myPrefs.contains(getContext().getString(R.string.pref_power_key))));
+    	thread.bPowers = myPrefs.getBoolean(getContext().getString(R.string.pref_power_key), true);
+    	pGameThread.bPowers = thread.bPowers;
+    	thread.triggerRedraw();
+    }
+    
+    public void newRound(){
+    	thread.showHand[1] = false;
+    	thread.showHand[2] = false;
+    	thread.showHand[3] = false;
+    }
 
 }
+
