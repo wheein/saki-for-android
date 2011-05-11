@@ -12,12 +12,6 @@ import android.util.Log;
  *
  */
 public class AI extends /*Handler*/Thread {
-	/**
-	 * TODO and/or Not Working:
-	 * 		- Priority setting does nothing
-	 * 		- Not checking to see if the tiles we are waiting for are even possible
-	 * 		- No concept of Defense
-	 */
 	
 	//Statics to be used for messages.  
 	static int DISCARD = 1;
@@ -35,7 +29,7 @@ public class AI extends /*Handler*/Thread {
 	 * 
 	 * See: setupAwayFrom()
 	 */
-	private int[] awayFrom;
+	protected int[] awayFrom;
 	
 	/**
 	 * Connections (the name made more sense in the past >_>) is what will determine what 
@@ -46,11 +40,11 @@ public class AI extends /*Handler*/Thread {
 	 * See: setupConnections(ArrayList<Integer>)
 	 * 
 	 */
-	private int[] Connections;
+	protected int[] Connections;
 	
 	//Thread execution controls
 	private boolean mRunning;
-	private boolean hasChanged;
+	protected boolean hasChanged;
 	private boolean runDrawScript;
 	private boolean runDiscardScript;
 	private boolean runPostScript;
@@ -59,7 +53,7 @@ public class AI extends /*Handler*/Thread {
 	 * Shantan/Tenpai Info
 	 */
 	public int ShantanCount;
-	private ArrayList<Integer> tenpaiTiles;
+	//protected ArrayList<Integer> tenpaiTiles;
 	//ArrayList<Integer> UnusedTiles;
 	ArrayList<Set> optimalHand;
 	
@@ -70,7 +64,7 @@ public class AI extends /*Handler*/Thread {
 	 * LockMode - Only discard things that lower our shanten count
 	 */
 	private boolean inBailMode;
-	private boolean inLockMode;
+	protected boolean inLockMode;
 	public boolean bCallEverythingMode;
 	
 	/**
@@ -132,25 +126,25 @@ public class AI extends /*Handler*/Thread {
 	 * 			TANYAO
 	 * 			YAKUHAI	
 	 */
-	private int[] thresholds;
-	private int[] priority;
+	protected int[] thresholds;
+	protected int[] priority;
 	
 	//These get some special values to help us assign multiple cases to 1 tile
 	private static int ITSUWEIGHT = 0x00000001;
-	private static int DOUJUNWEIGHT = 0x00000002;
-	private static int DOUKOUWEIGHT = 0x00000004;
+	protected static int DOUJUNWEIGHT = 0x00000002;
+	protected static int DOUKOUWEIGHT = 0x00000004;
 	private static int IIPEIKOUWEIGHT = 0x00000008;
 	private static int RYANPEIKOUWEIGHT = 0x00000016;
-	private int[] individualTileWeights; 
-	private int[] individualSuitValue; 
+	protected int[] individualTileWeights; 
+	protected int[] individualSuitValue; 
 	
 	/**
 	 * Helpers for calling tiles
 	 */
-	private int[] tilesToUse;
+	protected int[] tilesToUse;
 	
 	//It's REALLY important that this gets set
-	private int myID;
+	protected int myID;
 	
 	//Random number generator
 	Random randGenerator;
@@ -163,8 +157,8 @@ public class AI extends /*Handler*/Thread {
 	 * So we will used these to pass info back and forth.
 	 * Look into doing this properly in the future
 	 */
-	private int output;
-	private boolean outputReady;
+	protected int output;
+	protected boolean outputReady;
 	public void requestOutput(int cmd){
 		if(cmd == DISCARD){
 			output = handleDiscard();
@@ -306,7 +300,11 @@ public class AI extends /*Handler*/Thread {
 		try{
 			while(mRunning){
 				if(/*hasChanged*/runDrawScript){
+					boolean ippatsuSaver = pMyPlayer.ippatsu;
+					pMyPlayer.ippatsu = false;
 					ShantanCount = pMyPlayer.myHand.getShantenCount_TreeVersion(3, false);
+					pMyPlayer.ippatsu = ippatsuSaver;
+					handlePowersAtDraw();
 					setupAwayFrom();
 					chooseApproach();
 					runDrawScript = false;
@@ -314,6 +312,7 @@ public class AI extends /*Handler*/Thread {
 				}
 				else if(runDiscardScript){
 					pMyPlayer.myHand.setupTilesToCall();
+					handlePowersAtDiscard();
 					runDiscardScript = false;
 					hasChanged = false;
 				}
@@ -351,7 +350,24 @@ public class AI extends /*Handler*/Thread {
 	public void init(){
 		awayFrom = new int[] {14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14};
 		Connections = new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-		thresholds = new int[] {3,3,1,1,2,2,3,3,4,2,3,2,1,3,3,3,3,3};
+		thresholds = new int[] {3, //Pinfu
+								3, //Tanyao
+								1, //Iipeikou
+								1, //Yakuhai
+								2, //Sanshoku Doujun
+								2, //Itsu
+								3, //Chanta
+								3, //Honroutou
+								4, //Toitoi
+								2, //Sanankou
+								3, //Sankantsu
+								2, //Sanshoku Doukou
+								1, //Chiitoi
+								3, //Shousangen
+								3, //Honitsu
+								3, //Junchantayao
+								3, //Ryanpeikou
+								3};//Chinitsu
 		
 		//as the default we will set the bigger yaku to be higher priority
 		priority = new int[] {Globals.SHOUSANGEN,
@@ -394,6 +410,7 @@ public class AI extends /*Handler*/Thread {
 		inBailMode = false;
 		inLockMode = false;
 		bCallEverythingMode = false;
+		hasChanged = false;
 	}
 	
 	public void stopThread(){
@@ -598,7 +615,7 @@ public class AI extends /*Handler*/Thread {
 		}
 	}
 	
-	private int handleCall(){
+	protected int handleCall(){
 		/**
 		 * This is going to be really limited for the time being.  I'm not sure exactly how to
 		 * handle this intelligently.  Basically the only way they will open up is if Toi Toi,
@@ -1002,6 +1019,76 @@ public class AI extends /*Handler*/Thread {
 						}
 					}
 				}
+				else if(primaryYaku == Globals.SANKANTSU){
+					//Can we call a kan? Do it
+					if(kan)
+						return Globals.CMD.KAN;
+					
+					//Well we still need another set
+					//If it's a pon, do it.  Toitoi is fine, besides if it passes then we have 0 shot at a kan
+					if(pon)
+						return Globals.CMD.PON;
+					
+					//In theory we could call a chi and still get this hand, skip for now
+					
+				}
+				else if(primaryYaku == Globals.HONROUTOU){
+					if(pon || kan){
+						if(lastDiscard.getType() != Globals.SIMPLE){
+							if(kan)
+								return Globals.CMD.KAN;
+							return Globals.CMD.PON;
+						}
+					}
+				}
+				else if(primaryYaku == Globals.SANSHOKUDOUJUN){
+					//Do we already have this tile?
+					if(pMyPlayer.myHand.getFirstTile(lastDiscard) == -1){
+						//Is this even our doujun tile?
+						if(individualTileWeights[lastDiscard.rawNumber] != 0){
+							if((individualTileWeights[lastDiscard.rawNumber] & DOUJUNWEIGHT) == DOUJUNWEIGHT){
+								//OK we need this tile
+								//We'll be super picky for now, are there only 2 left?
+								if(discardCounts[lastDiscard.rawNumber] >= 2){
+									int theOtherTiles[] = new int[] {-1,-1};
+									int iter = 0;
+									//Find the damn doujun tiles
+									for(int thisTile = lastDiscard.rawNumber-2; thisTile < lastDiscard.rawNumber+3; thisTile++){
+										if(thisTile < 1)
+											continue;
+										if(thisTile == lastDiscard.rawNumber)
+											continue;
+										
+										if((individualTileWeights[thisTile] & DOUJUNWEIGHT) == DOUJUNWEIGHT){
+											theOtherTiles[iter++] = thisTile;
+										}
+									}
+									
+									//F*** this has taken too long to get to this point
+									if(pMyPlayer.myHand.getFirstTile(theOtherTiles[0]) != -1){
+										if(pMyPlayer.myHand.getFirstTile(theOtherTiles[1]) != -1){
+											tilesToUse[0] = pMyPlayer.myHand.getFirstTile(theOtherTiles[0]);
+											tilesToUse[1] = pMyPlayer.myHand.getFirstTile(theOtherTiles[1]);
+											return Globals.CMD.CHI;
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				else if(primaryYaku == Globals.SANSHOKUDOUKOU){
+					//Same principle as Doujun but a lot simpler
+					
+					//Is this our doukou tile?
+					if(individualTileWeights[lastDiscard.rawNumber] != 0){
+						if((individualTileWeights[lastDiscard.rawNumber] & DOUKOUWEIGHT) == DOUKOUWEIGHT){
+							if(pon && !kan){
+								return Globals.CMD.PON;
+							}
+						}
+					}
+				}
 			}
 			
 			return -1;
@@ -1011,6 +1098,69 @@ public class AI extends /*Handler*/Thread {
 			Log.e("AI.HandleCall", WTFAmI);
 			return -1;
 		}
+	}
+	
+	/**
+	 * I have way too many of these >_>
+	 */
+	protected void handlePowersAtStart(){
+		if(!pGameThread.bPowers){
+			turnOffPowers();
+			return;
+		}
+	}
+	
+	protected void handlePowersAtDraw(){
+		if(!pGameThread.bPowers){
+			turnOffPowers();
+			return;
+		}
+	}
+	
+	protected void handlePowersAtDiscard(){
+		if(!pGameThread.bPowers){
+			turnOffPowers();
+			return;
+		}
+	}
+	
+	protected void handlePowersAtCall(){
+		if(!pGameThread.bPowers){
+			turnOffPowers();
+			return;
+		}
+	}
+	
+	protected void handlePowersAtEnd(){
+		if(!pGameThread.bPowers){
+			turnOffPowers();
+			return;
+		}
+	}
+	
+	protected void handlePowersAtWin(){
+		if(!pGameThread.bPowers){
+			turnOffPowers();
+			return;
+		}
+	}
+
+	protected void handlePowersAtLose(){
+		if(!pGameThread.bPowers){
+			turnOffPowers();
+			return;
+		}
+	}
+	
+	protected void handlePowersAtKan(){
+		if(!pGameThread.bPowers){
+			turnOffPowers();
+			return;
+		}
+	}
+	
+	protected void turnOffPowers(){
+		
 	}
 	
 	public boolean canCallTsumo(){
@@ -2072,7 +2222,7 @@ public class AI extends /*Handler*/Thread {
 		}
 		else{
 			inBailMode = false;
-			boolean haveSomething = false;
+			int haveSomething = 0;
 			boolean closeToSomethingElse = false;
 			for(int i = 0; i < Globals.AIYAKUCOUNT; i++){
 				/**
@@ -2082,13 +2232,13 @@ public class AI extends /*Handler*/Thread {
 				 * Instead we will have a boatload of special cases
 				 */
 				if(awayFrom[i] == 0){
-					haveSomething = true;
+					haveSomething++;
 					//break;
 				}
 				if(awayFrom[i] == 1 &&
 				  (i == Globals.CHINITSU || i == Globals.HONITSU || i == Globals.TANYAO || i == Globals.JUNCHANTAYAO || i == Globals.CHIITOI)	
 				   ){
-					haveSomething = true;
+					haveSomething++;
 					//break;
 				}
 				
@@ -2102,11 +2252,12 @@ public class AI extends /*Handler*/Thread {
 					
 			}
 			
-			if(ShantanCount < 3 && haveSomething){
-				
+			if(ShantanCount < 3 && (haveSomething > 1)){ 
 				//less than 24 tiles means there are only 6 more go arounds...kind of arbitrary
 				//Changed to 35 (still arbitrary), it was waiting a bit too long to call riichi
-				if(closeToSomethingElse && (pGameThread.mTable.wallCount() > 35)){
+				if(closeToSomethingElse && (pGameThread.mTable.wallCount() > 35) && (haveSomething == 1)){
+					//Only invoke this when we are at a single yaku
+					//We were having issues with people throwing away 2+ yaku hands for no good reason
 					if(inBailMode || inLockMode)
 						Log.i("AI.chooseApproach", getName() + ": General Mode");
 					inBailMode = false;
@@ -2132,4 +2283,21 @@ public class AI extends /*Handler*/Thread {
 			}
 		}
 	}
+	
+	public void terminateThread(){
+		mRunning = false;
+	}
+	
+	public void waitForThread(){
+		try{
+			while(hasChanged){
+				sleep(100);
+			}
+		}
+		catch(Exception e){
+			String WTFAmI = e.toString();
+			Log.e("AI.waitForThread", WTFAmI);
+		}
+	}
 }
+
