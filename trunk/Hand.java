@@ -109,12 +109,12 @@ public class Hand extends Object{
 		dot = new int[14];
 		character = new int[14];
 		honor = new int[14];*/
-		suits = new Integer[][] {{-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
-							 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
-							 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
-							 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
-							 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
-							 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1}};
+		suits = new Integer[][] {{-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
+							 	 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
+							 	 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
+							 	 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
+							 	 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
+							 	 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1}};
 		/*vSuits = new ArrayList<Integer>[7];
 		for ( int i = 0; i < 7; i++ )
 		    vSuits[i] = new ArrayList<Integer>();*/
@@ -145,7 +145,7 @@ public class Hand extends Object{
 			
 			//Clear it out, it screws it up if you try overriding a previous sort
 			for(int i = 0; i <= Globals.Suits.KAZE; i++){
-				for(int j = 0; j < 14; j++){
+				for(int j = 0; j < 16; j++){
 					suits[i][j] = -1;
 				}
 			}
@@ -282,7 +282,7 @@ public class Hand extends Object{
 		Tile14 = -1;
 		numberOfMelds = 0;
 		for(int i = 0; i < 6; i++){
-			for(int j = 0; j < 14; j++){
+			for(int j = 0; j < 16; j++){
 				suits[i][j] = -1;
 			}
 		}
@@ -838,8 +838,9 @@ public class Hand extends Object{
 		//if(maxAwayFrom != 0){
 		//	maxAwayFrom++;
 		//}
-		if(((!pMyPlayer.riichi)  || pMyPlayer.ippatsu)/* && getTenpaiTiles*/)
+		if(pMyPlayer.ippatsu || !pMyPlayer.riichi){
 			tenpaiTiles.clear();
+		}
 		/**
 		 * We could have multiple hands that are optimal (Ex: we have 1234, it doesn't matter if we discard the 1 or 4)
 		 * In the future we should document all of them, but for the time being I just 
@@ -1799,6 +1800,7 @@ public class Hand extends Object{
 			if(selfDraw && !isOpen)
 				yaku[Globals.MENZEN] = 1;
 			
+			int wallCount = pMyPlayer.pMainGameThread.mTable.wallCount();
 			if(pMyPlayer.pMainGameThread.mTable.wallCount() == 0){
 				if(selfDraw)
 					yaku[Globals.HAITEI] = 1;
@@ -1933,6 +1935,15 @@ public class Hand extends Object{
 					fuIdx = 8;
 				else if(fu <= 100)
 					fuIdx = 9;
+				
+				//If this happens then our score is 0 and something went wrong
+				//The only case I can think of where this has happened is:
+				//Open pinfu, haitei as the only yaku
+				if((fuIdx == 0)&&(han == 1)){
+					Globals.myAssert(false);
+					fuIdx = 1;
+				}
+				
 				if(pMyPlayer.currentWind == Globals.Winds.EAST)
 					points = Globals.eastScoreTable[han-1][fuIdx];
 				else
@@ -1951,3 +1962,4 @@ public class Hand extends Object{
 		return points;
 	}
 }
+
