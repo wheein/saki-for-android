@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
       package="mahjong.riichi"
-      android:versionCode="1" android:versionName="0.1">
+      android:versionCode="1" android:versionName="0.2.0">
 <supports-screens android:normalScreens="true" android:largeScreens="true" android:smallScreens="false" android:anyDensity="true"></supports-screens>
 
 
-    <application android:icon="@drawable/icon" android:label="@string/app_name" android:debuggable="true" android:persistent="true">
+    <application android:icon="@drawable/icon" android:label="@string/app_name" android:persistent="true" android:debuggable="false">
         <activity android:name=".StartHere"
                   android:label="@string/app_name"
                   android:configChanges="orientation|keyboardHidden" android:screenOrientation="landscape">
@@ -14,12 +14,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name="ScoreScreen" android:label="@string/app_name" android:screenOrientation="landscape">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"></action>
-                <category android:name="android.intent.category.LAUNCHER"></category>
-            </intent-filter>
-        </activity>
+        <activity android:name=".Settings" 
+                android:label="@string/settings_title">
+		</activity>
+        <activity android:name="StatScreen" android:label="@string/stats_title"></activity>
 
     </application>
 </manifest>
