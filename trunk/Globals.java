@@ -1,26 +1,15 @@
 package mahjong.riichi;
 
 public class Globals {
-	//Tile Classification
-	public static class Suits{
-		public static int BAMBOO = 1;
-		public static int PIN = 2;
-		public static int MAN = 3;
-		public static int SANGEN = 4;
-		public static int KAZE = 5;
-	}
+	//ID numbers
+	//public static int SCORESCREEN = 1;
+	
+	//Others
+	public static String VERSION = "v0.2.0 Beta";
 	
 	public static int SIMPLE = 1;
 	public static int TERMINAL = 2;
 	public static int HONOR = 3;
-	
-	//General
-	public static class Winds{
-		public static int EAST = 0;
-		public static int SOUTH = 1;
-		public static int WEST = 2;
-		public static int NORTH = 3;
-	}
 	
 	public static int MAXTILE = 34; //Depreciated, use Tile.LAST_TILE
 	
@@ -76,6 +65,23 @@ public class Globals {
 	
 	public static int ALLYAKUCOUNT = 39;
 	
+	//Tile Classification
+	public static class Suits{
+		public static int BAMBOO = 1;
+		public static int PIN = 2;
+		public static int MAN = 3;
+		public static int SANGEN = 4;
+		public static int KAZE = 5;
+	}
+	
+	//Winds
+	public static class Winds{
+		public static int EAST = 0;
+		public static int SOUTH = 1;
+		public static int WEST = 2;
+		public static int NORTH = 3;
+	}
+	
 	//Commands
 	public static class CMD{
 		public static int PASS = 0;
@@ -90,27 +96,50 @@ public class Globals {
 		public static int NOTEN = 1001;
 	}
 	
-	//ID numbers
-	public static int SCORESCREEN = 1;
-	
-	//Others
-	public static String VERSION = "v0.1.1 Alpha";
-	
 	public static class Powers{
+		/**
+		 * The drawBased powers will increase the odds of drawing what is in your
+		 * powerTiles list.
+		 * drawBased = 100% chance as long as it's possible
+		 * DoubleOdds will redraw a second time if it doesn;t come up the first time
+		 * TripleOdds is the same thing but 2 additional draws
+		 * 
+		 * Invisibility is a Momoka specific power
+		 */
 		public static int drawBased = 0;
 		public static int invisibility = 1;
-		public static int COUNT = 2;
+		public static int drawBased_DoubleOdds = 2;
+		public static int drawBased_TripleOdds = 3;
+		public static int pureVision = 4;
+		public static int dealBased = 5;
+		public static int COUNT = 6;
 	}
 	
 	//Character IDs
 	public static class Characters{
 		//public static int GENERIC = 0;
 		public static int SAKI = 0;
-		public static int KANA = 1;
-		public static int KOROMO = 2;
-		public static int MOMOKA = 3;
+		public static int NODOKA = 1;
+		public static int YUUKI = 2;
+		public static int MAKO = 3;
+		public static int HISA = 4;
+		public static int TOUKA = 5;
+		public static int KOROMO = 6;
+		public static int HAJIME = 7;
+		public static int TOMOKI = 8;
+		public static int JUN = 9;
+		public static int MIHOKO = 10;
+		public static int KANA = 11;
+		public static int MIHARU = 12;
+		public static int SEIKA = 13;
+		public static int SUMIYO = 14;
+		public static int YUMI = 15;
+		public static int MOMOKA = 16;
+		public static int SATOMI = 17;
+		public static int KAORI = 18;
+		public static int MUTSUKI = 19;
 		
-		public static int COUNT = 4;
+		public static int COUNT = 20;
 		
 		public static class Graphics{
 			public static int NEUTRAL = 0;
@@ -127,41 +156,122 @@ public class Globals {
 					return "宮永 咲 (みやなが　さき)";
 				return "Miyanaga Saki";
 			}
-			if(CharID == KANA){
+			else if(CharID == KANA){
 				if(bJapanese)
 					return "池田華菜 (いけだ　かな)";
 				return "Ikeda Kana";
 			}
-			if(CharID == KOROMO){
+			else if(CharID == KOROMO){
 				if(bJapanese)
 					return "天江 衣 (あまえ　ころも)";
 				return "Amae Koromo";
 			}
-			if(CharID == MOMOKA){
+			else if(CharID == MOMOKA){
 				if(bJapanese)
 					return "東横桃子(とうよこ　ももか)";
 				return "Touyoko Momoka";
 			}
+			else if(CharID == NODOKA){
+				if(bJapanese)
+					return "原村 和 (はらむら　のどか)";
+				return "Haramura Nodoka";
+			}
+			else if(CharID == YUUKI){
+				if(bJapanese)
+					return "片岡 優希 (かたおか　ゆうき)";
+				return "Kataoka Yuuki";
+			}
+			else if(CharID == MAKO){
+				if(bJapanese)
+					return "染谷 まこ(そめや　まこ)";
+				return "Someya Mako";
+			}
+			else if(CharID == HISA){
+				if(bJapanese)
+					return "竹井 久(たけい　ひさ)";
+				return "Takei Hisa";
+			}
+			else if(CharID == TOUKA){
+				if(bJapanese)
+					return "龍門渕透華 (りゅうもんぶち　とうか)";
+				return "Ryuumonbuchi Touka";
+			}
+			else if(CharID == HAJIME){
+				if(bJapanese)
+					return "国広一 (くにひろ　はじめ)";
+				return "Kunihiro Hajime";
+			}
+			else if(CharID == TOMOKI){
+				if(bJapanese)
+					return "沢村智紀(さわむら　ともき)";
+				return "Sawamura Tomoki";
+			}
+			else if(CharID == JUN){
+				if(bJapanese)
+					return "井上純(いのうえ　じゅん)";
+				return "Inoue Jun";
+			}
+			else if(CharID == MIHOKO){
+				if(bJapanese)
+					return "福路美穂子(ふくじ　みほこ)";
+				return "Fukuji Mihoko";
+			}
+			else if(CharID == MIHARU){
+				if(bJapanese)
+					return "吉留未春(よしとめ　みはる)";
+				return "Yoshitome Miharu";
+			}
+			else if(CharID == SEIKA){
+				if(bJapanese)
+					return "文堂星夏(ぶんどう　せいか)";
+				return "Bundou Seika";
+			}
+			else if(CharID == SUMIYO){
+				if(bJapanese)
+					return "深堀純代(ふかぼり　すみよ)";
+				return "Fukabori Sumiyo";
+			}
+			else if(CharID == YUMI){
+				if(bJapanese)
+					return "加治木ゆみ(かじき　ゆみ)";
+				return "Kajiki Yumi";
+			}
+			else if(CharID == SATOMI){
+				if(bJapanese)
+					return "蒲原智美(かんばら　さとみ)";
+				return "Kanbara Satomi";
+			}
+			else if(CharID == KAORI){
+				if(bJapanese)
+					return "妹尾佳織(せのう　かおり)";
+				return "Senou Kaori";
+			}
+			else if(CharID == MUTSUKI){
+				if(bJapanese)
+					return "津山睦月(つやま　むつき)";
+				return "Tsuyama Mutsuki";
+			}
+			
 			return "";
 		}
 		
 		public static String getSchool(int CharID, boolean bJapanese){
-			if(CharID == SAKI){
+			if((CharID == SAKI)||(CharID == NODOKA)||(CharID == YUUKI)||(CharID == MAKO)||(CharID == HISA)){
 				if(bJapanese)
 					return "清澄高校";
 				return "Kiyosumi High School";
 			}
-			if(CharID == KANA){
+			if((CharID == KANA)||(CharID == MIHOKO)||(CharID == MIHARU)||(CharID == SEIKA)||(CharID == SUMIYO)){
 				if(bJapanese)
 					return "風越女子高校";
 				return "Kazekoshi Girls' School";
 			}
-			if(CharID == KOROMO){
+			if((CharID == KOROMO)||(CharID == TOUKA)||(CharID == HAJIME)||(CharID == TOMOKI)||(CharID == JUN)){
 				if(bJapanese)
 					return "龍門渕高校";
 				return "Ryuumonbuchi High School";
 			}
-			if(CharID == MOMOKA){
+			if((CharID == MOMOKA)||(CharID == YUMI)||(CharID == SATOMI)||(CharID == KAORI)||(CharID == MUTSUKI)){
 				if(bJapanese)
 					return "鶴賀学園";
 				return "Tsuruga Academy ";
@@ -170,7 +280,7 @@ public class Globals {
 		}
 		
 		/**
-		 * Return must be 6 lines!
+		 * Return must be 6 lines!....er 4
 		 *Switching to a bullet point format because it's easier
 		 * Text size is based off of the first line, so pad it to the max amount of space needed
 		 * @param CharID
@@ -180,70 +290,269 @@ public class Globals {
 		public static String[] getBio(int CharID, boolean bJapanese){
 			if(CharID == SAKI){
 				if(bJapanese)
-					return new String[] {"ちょっと内気な高校１年生の女の子。",
-										"勝ちでも負けでもない±０（プラスマイナス・ゼロ）の成績で終わる",
-										"麻雀を打ち続けていたが、「和（のどか）」との出会いで麻雀に対する",
-										"意欲が変化し始める。普段のドジで泣き虫な姿とは裏腹に、麻雀では",
-										"ここぞという場面で驚異的な打ち筋を魅せる。",
-										""};
-				return new String[] {"- First year student and anchor of her team                         \n",
-									 "- Notorious for her ability to score zero points every round",
+					return new String[] {"・高校１年生, 大将",
+										"・10月27日生まれ",
+										"・和が好きです",
+										"・お姉さんはプロです"
+										};
+				return new String[] {"- First year student, team anchor",
 									 "- Great at playing in person, but can not play online",
-									 "- Her estranged sister is a top-ranked mahjong player",
-									 "- Very close with Nodoka",
-									 "- Power activates when in tenpai (if possible)"};
+									 "- Loves Nodoka",
+									 "- Her estranged sister is a top-ranked mahjong player"
+									 };
 			}
-			if(CharID == KANA){
+			else if(CharID == NODOKA){
 				if(bJapanese)
-					return new String[] {"風越女子高校の２年生で、校内ランキング２位の実力をもつ。福路を",
-										"心から敬愛しており、そのせいか福路にとってラストチャンスとなる今",
-										"回の県大会予選に対して熱い闘志をみなぎらせる。思い込みが強い",
-										"反面、まわりが見えなくなって、周囲から浮いてる存在となってしまう",
-										"事がたまにある。",
-										""};
-				return new String[] {"- Second year student and 2nd best player on her team                     \n",
-									 "- Despire being 2nd best player on the team, she is the team's anchor",
-									 "- Very close with Captain Mihoko",
-									 "- Plucky, known for come backs when down big",
-									 "- Nya",
-									 ""};
+					return new String[] {"・高校１年生",
+										"・10月4日生まれ",
+										"・咲が好きです",
+										"・全国中学生麻雀大会個人戦優勝の経験"
+										};
+				return new String[] {"- First year student",
+									 "- National Middle School Individual Champion.",
+									 "- Always carries her penguin doll, Etopen",
+									 "- Her online handle is 'Nodocchi'"
+									 };
 			}
-			if(CharID == KOROMO){
+			else if(CharID == YUUKI){
 				if(bJapanese)
-					return new String[] {"出身、経歴などが謎につつまれた女の子。プロ雀士の藤田が「牌に",
-										"愛された子」と称する３人の女子高生のうちの一人。一見すると子供",
-										"と思われるような幼い風貌とは裏腹に、麻雀の実力では何人たりと",
-										"も寄せ付けることが出来ない程の強さを持っている。",
+					return new String[] {"・高校１年生",
+										"・9月16日生まれ",
+										"・東場（ゲーム前半）では強い",
+										""
+										};
+				return new String[] {"- First year student",
+									 "- Strong in the east round, but weak in south.",
+									 "- Derives her mahjong powers from eating tacos",
+									 "- Hates math"
+									 };
+			}
+			else if(CharID == MAKO){
+				if(bJapanese)
+					return new String[] {"・高校2年生",
+										"・5月5日生まれ",
+										"・麻雀部次期主将",
+										"・家は屋号の雀荘である"
+										};
+				return new String[] {"- Second year student",
+									 "- Next in line to be captain",
+									 "- Grew up in a mahjong parlor",
+									 "- Removes her glasses when she plays"
+									 };
+			}
+			else if(CharID == HISA){
+				if(bJapanese)
+					return new String[] {"・高校3年生",
+										"・11月13日生まれ",
+										"・学生議会長で麻雀部部長",
+										""
+										};
+				return new String[] {"- Third year student",
+									 "- Student Congress President.",
+									 "- Mahjong Club President",
+									 "- Likes to use hell waits"
+									 };
+			}
+			else if(CharID == KANA){
+				if(bJapanese)
+					return new String[] {"・高校２年生, 大将",
+										"・2月22日生まれ",
+										"・カプタン美穂子が好きです",
+										"・ ～にゃあ"
+										};
+				return new String[] {"- Second year student, team anchor",
+									 "- Loves Captain Mihoko",
+									 "- Nya =3",
+									 ""
+									 };
+			}
+			else if(CharID == MIHOKO){
+				if(bJapanese)
+					return new String[] {"・高校3年生",
+										"・9月24日生まれ",
+										"・風越女子のキャプテンで",
+										"・左目の色はブラウン、右目はブルー"
+										};
+				return new String[] {"- Third year student",
+									 "- Mahjong club Captain",
+									 "- Eyes are two different colors",
+									 ""
+									 };
+			}
+			else if(CharID == MIHARU){
+				if(bJapanese)
+					return new String[] {"・高校２年生",
 										"",
-										""};
-				return new String[] {"- Second year student and the ace of the Ryūmonbuchi team                    \n",
-									 "- Looks like a little girl but, dislikes people who treat her like a child",
-									 "- Her play is enhanced under a full moon",
-									 "- Despite her acting tough, she feels lonely and is looking for friends",
-									 "- Her birthday is September 6",
-									 "- Power activates when in tenpai and the wall count < 24 (if possible)"};
+										"",
+										""
+										};
+				return new String[] {"- Second Year Student",
+									 "",
+									 "",
+									 ""
+									 };
 			}
-			if(CharID == MOMOKA){
+			else if(CharID == SEIKA){
 				if(bJapanese)
-					return new String[] {"鶴賀学園・麻雀部でごく希に存在が確認される高校１年生。影の薄",
-										"さ金メダル級の体質を持っており、本人も回りとのコミュニケーション",
-										"を避けていたが、ふとしたキッカケで麻雀部に入ることに。麻雀の腕が",
-										"確かなのはもちろん、その体質を利用した独自の打ち回しで周囲を",
-										"翻弄する。",
-										""};
-				return new String[] {"- First year student and #2 player on her team                              \n",
-									 "- Has a very weak presence causing her to be ignored by everyone",
-									 "- Very close with Yumi (who was the first person to notice her)",
-									 "- Not the most skilled player, realizes on her invisibility to win",
-									 "- Power activates after 2 straight rounds of no pon/chi/ron calls",
-									 ""};
+					return new String[] {"・高校１年生",
+										"・校内ランキングは5位",
+										"・学生議会長で麻雀部部長",
+										""
+										};
+				return new String[] {"- First year student",
+									 "- 5th ranked player in the school",
+									 "- Student Congress member",
+									 ""
+									 };
+			}
+			else if(CharID == SUMIYO){
+				if(bJapanese)
+					return new String[] {"・高校２年生",
+										"・口数が非常に少ない",
+										"",
+										""
+										};
+				return new String[] {"- Second year student",
+									 "- Quiet",
+									 "",
+									 ""
+									 };
+			}
+			else if(CharID == TOUKA){
+				if(bJapanese)
+					return new String[] {"・高校2年生",
+										"・9月10日生まれ",
+										"・麻雀部部長",
+										"・祖父は龍門渕高校の理事長"
+										};
+				return new String[] {"- Second year student",
+									 "- Granddaughter of the school preisdent",
+									 "- Mahjong Club President",
+									 "- ~desu wa"
+									 };
+			}
+			else if(CharID == KOROMO){
+				if(bJapanese)
+					return new String[] {"・高校２年生, 大将",
+										"・捨て子、透華と住めています",
+										"・誕生日は九月六日です",
+										""
+										};
+				return new String[] {"- Second year student, team anchor",
+									 "- Her play is enhanced under a full moon",
+									 "- Orphan, lives with Touka",
+									 "- Her birthday is September 6"
+									 };
+			}
+			else if(CharID == HAJIME){
+				if(bJapanese)
+					return new String[] {"・高校2年生",
+										"・9月21日生まれ",
+										"・透華のメイドでもある",
+										"・ボクっ娘"
+										};
+				return new String[] {"- Second year student",
+									 "- Serves as Touka's maid",
+									 "- Caught cheating in a past tournament",
+									 ""
+									 };
+			}
+			else if(CharID == TOMOKI){
+				if(bJapanese)
+					return new String[] {"・高校2年生",
+										"・3月10日生まれ",
+										"・口数が少ない",
+										"・いつもノートパソコンを持ち歩いており"
+										};
+				return new String[] {"- Second year student",
+									 "- Quiet",
+									 "- Strictly a 'digital' type player",
+									 ""
+									 };
+			}
+			else if(CharID == JUN){
+				if(bJapanese)
+					return new String[] {"・高校2年生",
+										"・9月14日生まれ",
+										"・長身",
+										"・オレ女"
+										};
+				return new String[] {"- Second year student",
+									 "- Extremely tall",
+									 "- Often mistaken for a boy",
+									 ""
+									 };
+			}
+			else if(CharID == MOMOKA){
+				if(bJapanese)
+					return new String[] {"・高校１年生",
+										"・7月26日生まれ",
+										"・ゆみが好きです",
+										"・影が薄く"
+										};
+				return new String[] {"- First year student, #2 player on her team",
+									 "- Has a very weak presence, ignored by everyone",
+									 "- Loves Yumi (who was the first person to notice her)",
+									 ""
+									 };
+			}
+			else if(CharID == YUMI){
+				if(bJapanese)
+					return new String[] {"・高校3年生, 大将",
+										"・12月21日生まれ",
+										"",
+										""
+										};
+				return new String[] {"- Third year student, team anchor",
+									 "- Strongest player on the team, but not the captain",
+									 "",
+									 ""
+									 };
+			}
+			else if(CharID == SATOMI){
+				if(bJapanese)
+					return new String[] {"・高校3年生",
+										"・麻雀部部長",
+										"",
+										""
+										};
+				return new String[] {"- Third year student",
+									 "- Club president",
+									 "- Wa-ha-ha",
+									 ""
+									 };
+			}
+			else if(CharID == KAORI){
+				if(bJapanese)
+					return new String[] {"・高校2年生",
+										"・麻雀は素人",
+										"",
+										""
+										};
+				return new String[] {"- Second year student",
+									 "- Complete amateur at mahjong",
+									 "- Incredible beginner's luck",
+									 ""
+									 };
+			}
+			else if(CharID == MUTSUKI){
+				if(bJapanese)
+					return new String[] {"・高校2年生",
+										"・蒲原の引退に伴い部長職を引き継ぎ",
+										"",
+										""
+										};
+				return new String[] {"- Second year student",
+									 "- Will become the club president next year",
+									 "",
+									 ""
+									 };
 			}
 			return new String[] {"",
 								"",
 								"",
 								"",
-								"",
-								""};
+								};
 		}
 		
 		public static String getPower(int CharID, boolean bJapanese){
@@ -252,22 +561,42 @@ public class Globals {
 					return "嶺上開花";
 				return "Rinshan Kaihou";
 			}
-			if(CharID == KANA){
-				if(bJapanese)
-					return "無い";
-				return "None";
-			}
-			if(CharID == KOROMO){
+			else if(CharID == KOROMO){
 				if(bJapanese)
 					return "海底撈月";
 				return "Haitei Raoyue";
 			}
-			if(CharID == MOMOKA){
+			else if(CharID == MOMOKA){
 				if(bJapanese)
 					return "見えない";
 				return "Invisibility";
 			}
-			return "";
+			else if(CharID == HISA){
+				if(bJapanese)
+					return "地獄待ち";
+				return "Hell Wait";
+			}
+			else if(CharID == MIHOKO){
+				if(bJapanese)
+					return "すべてを見る";
+				return "See All";
+			}
+			else if(CharID == MAKO){
+				if(bJapanese)
+					return "すべてを見る";
+				return "See All";
+			}
+			else if(CharID == KAORI){
+				if(bJapanese)
+					return "素人のまぐれ";
+				return "Beginner's Luck";
+			}
+			else{
+				if(bJapanese)
+					return "無い";
+				return "None";
+			}
+			//return "";
 		}
 	}
 	
@@ -286,8 +615,13 @@ public class Globals {
 			public static int LEFT_ARROW = 6;
 			public static int RIGHT_ARROW = 7;
 			public static int OK_SQUARE_BTN = 8;
+			public static int HALF_LEFT_ARROW = 9;
+			public static int HALF_RIGHT_ARROW = 10;
+			public static int RED_OUTLINE = 11;
+			public static int LIGHTNING = 12;
+			public static int BLANK_BUTTON = 13;
 			
-			public static int COUNT = 9;
+			public static int COUNT = 14;
 		}
 	}
 	
@@ -365,7 +699,7 @@ public class Globals {
 		if(yaku == SANKANTSU){
 			if(japanese)
 				return "三槓子";
-			return "Sak Kantsu";
+			return "San Kantsu";
 		}
 		if(yaku == SANSHOKUDOUKOU){
 			if(japanese)
