@@ -57,7 +57,7 @@ public class Table {
 		randGenerator = new Random();
 		
 		Dora = new ArrayList<Tile>();
-		Discards = new Tile[4][22];
+		Discards = new Tile[4][24];
 		discardCount = new int[] {0,0,0,0};
 		riichiTile = new int[] {-1,-1,-1,-1};
 		bonusCount = 0;
@@ -96,22 +96,25 @@ public class Table {
 	}
 	
 	public Tile drawRandomTile(){
-		if(TileCountList.size() <= (8-Dora.size())) //Dead Wall
-			return null;
-		
-		if(TileCountList.size() <= 2)
-			return null;
-		
-		int pos = randGenerator.nextInt(TileCountList.size()-2)+1;
-		
-		if(reservedTiles.contains(TileCountList.get(pos))){ //We are only going to try this one time.  I don;t want to end up in a situation where nothing can be drawn
-			if(!isMultipleInWall(TileCountList.get(pos)))
-				pos = randGenerator.nextInt(TileCountList.size()-2)+1;
-		}
-		
-		Globals.myAssert(pos != TileCountList.size() && pos >= 1);
-		
 		try{
+			if(wallCount() <= 0)
+				return null;
+			//if(TileCountList.size() <= (8-Dora.size())) //Dead Wall
+			//	return null;
+			
+			if(TileCountList.size() <= 2)
+				return null;
+			
+			int pos = randGenerator.nextInt(TileCountList.size()-1)+1;
+			
+			if(reservedTiles.contains(TileCountList.get(pos))){ //We are only going to try this one time.  I don;t want to end up in a situation where nothing can be drawn
+				if(!isMultipleInWall(TileCountList.get(pos)))
+					pos = randGenerator.nextInt(TileCountList.size()-1)+1;
+			}
+			
+			Globals.myAssert(pos != TileCountList.size() && pos >= 1);
+		
+		
 			Tile ret = TileList[TileCountList.get(pos)];
 			TileCountList.remove(pos);
 			return ret;
@@ -124,26 +127,29 @@ public class Table {
 	}
 	
 	private Tile drawRandomTile(boolean ignoreDeadWall){
-		if(!ignoreDeadWall){
-			if(TileCountList.size() <= (8-Dora.size())) //Dead Wall
-				return null;
-		}
-		else{
-			if(TileCountList.size() <= 0) 
-				return null;
-		}
-		
-		if(TileCountList.size() <= 2)
-			return null;
-		
-		int pos = randGenerator.nextInt(TileCountList.size()-2)+1;
-		
-		if(reservedTiles.contains(TileCountList.get(pos))) //We are only going to try this one time.  I don;t want to end up in a situation where nothing can be drawn
-			pos = randGenerator.nextInt(TileCountList.size()-2)+1;
-		
-		Globals.myAssert(pos != TileCountList.size() && pos >= 1);
-		
 		try{
+			if(!ignoreDeadWall){
+				if(wallCount() <= 0)
+					return null;
+				//if(TileCountList.size() <= (8-Dora.size())) //Dead Wall
+				//	return null;
+			}
+			else{
+				if(TileCountList.size() <= 0) 
+					return null;
+			}
+			
+			if(TileCountList.size() <= 2)
+				return null;
+			
+			int pos = randGenerator.nextInt(TileCountList.size()-2)+1;
+			
+			if(reservedTiles.contains(TileCountList.get(pos))) //We are only going to try this one time.  I don;t want to end up in a situation where nothing can be drawn
+				pos = randGenerator.nextInt(TileCountList.size()-2)+1;
+			
+			Globals.myAssert(pos != TileCountList.size() && pos >= 1);
+			
+		
 			Tile ret = TileList[TileCountList.get(pos)];
 			TileCountList.remove(pos);
 			return ret;
@@ -160,83 +166,123 @@ public class Table {
 	}
 	
 	public Tile drawNonRandomTile(int rawTileNumber){
-		if(TileCountList.size() <= (8-Dora.size())) //Dead Wall
-			return null;
-		
-		if(TileCountList.size() <= 2)
-			return null;
-		
-		int idx = TileCountList.indexOf(rawTileNumber);
-		if(idx < 0){
-			/**
-			 * Special cases for the 5's
-			 * The red 5's have different numbers in this list
-			 */
-			if(rawTileNumber == 5)
-				idx = TileCountList.indexOf(35);
-			if(rawTileNumber == 14)
-				idx = TileCountList.indexOf(36);
-			if(rawTileNumber == 23)
-				idx = TileCountList.indexOf(37);
-		}
-		
-		if(idx < 0)
-			return drawRandomTile();
-		
-		
 		try{
-			Tile ret = TileList[TileCountList.get(idx)];
-			TileCountList.remove(idx);
-			return ret;
-		}
-		catch(Exception e){
-			String WTFAmI = e.toString();
-			Log.e("Table.drawRandomTile", WTFAmI);
-			return null;
-		}
-	}
-	
-	public Tile drawNonRandomTile(ArrayList<Integer> rawTileNumbers){
-		if(TileCountList.size() <= (8-Dora.size())) //Dead Wall
-			return null;
-		
-		if(TileCountList.size() <= 2)
-			return null;
-		
-		int idx = -1;
-		for(int i = 0; i < rawTileNumbers.size(); i++){
-			idx = TileCountList.indexOf(rawTileNumbers.get(i));
+			if(wallCount() <= 0)
+				return null;
+			//if(TileCountList.size() <= (8-Dora.size())) //Dead Wall
+			//	return null;
 			
+			if(TileCountList.size() <= 2)
+				return null;
+			
+			int idx = TileCountList.indexOf(rawTileNumber);
 			if(idx < 0){
 				/**
 				 * Special cases for the 5's
 				 * The red 5's have different numbers in this list
 				 */
-				if(rawTileNumbers.get(i) == 5)
+				if(rawTileNumber == 5)
 					idx = TileCountList.indexOf(35);
-				if(rawTileNumbers.get(i) == 14)
+				if(rawTileNumber == 14)
 					idx = TileCountList.indexOf(36);
-				if(rawTileNumbers.get(i) == 23)
+				if(rawTileNumber == 23)
 					idx = TileCountList.indexOf(37);
 			}
 			
-			if(idx >= 0){
-				rawTileNumbers.remove(i);
-				break;
-			}
-		}
+			if(idx < 0)
+				return drawRandomTile();
 		
-		if(idx < 0)
-			return drawRandomTile();
 		
-		try{
+		
 			Tile ret = TileList[TileCountList.get(idx)];
 			TileCountList.remove(idx);
 			return ret;
 		}
 		catch(Exception e){
 			String WTFAmI = e.toString();
-			Log.e("Table.drawRandomTile", WTFAmI);
+			Log.e("Table.drawNonRandomTile", WTFAmI);
+			return null;
+		}
+	}
+	
+	public Tile drawNonRandomTile(ArrayList<Integer> rawTileNumbers){
+		try{
+			if(wallCount() <= 0)
+				return null;
+			//if(TileCountList.size() <= (8-Dora.size())) //Dead Wall
+			//	return null;
+			
+			if(TileCountList.size() <= 2)
+				return null;
+			
+			int idx = -1;
+			for(int i = 0; i < rawTileNumbers.size(); i++){
+				idx = TileCountList.indexOf(rawTileNumbers.get(i));
+				
+				if(idx < 0){
+					/**
+					 * Special cases for the 5's
+					 * The red 5's have different numbers in this list
+					 */
+					if(rawTileNumbers.get(i) == 5)
+						idx = TileCountList.indexOf(35);
+					if(rawTileNumbers.get(i) == 14)
+						idx = TileCountList.indexOf(36);
+					if(rawTileNumbers.get(i) == 23)
+						idx = TileCountList.indexOf(37);
+				}
+				
+				if(idx >= 0){
+					rawTileNumbers.remove(i);
+					break;
+				}
+			}
+			
+			if(idx < 0)
+				return drawRandomTile();
+		
+		
+			Tile ret = TileList[TileCountList.get(idx)];
+			TileCountList.remove(idx);
+			return ret;
+		}
+		catch(Exception e){
+			String WTFAmI = e.toString();
+			Log.e("Table.drawNonRandomTile_List", WTFAmI);
+			return null;
+		}
+	}
+	
+	public Tile drawNonRandomTile(ArrayList<Integer> rawTileNumbers, int numberOfRedraws){
+		try{
+			if(wallCount() <= 0)
+				return null;
+			//if(TileCountList.size() <= (8-Dora.size())) //Dead Wall
+			//	return null;
+			
+			if(TileCountList.size() <= 2)
+				return null;
+			
+			int pos = 0;
+			for(int drawNumber = 0; drawNumber < numberOfRedraws; drawNumber++){
+				pos = randGenerator.nextInt(TileCountList.size()-2)+1;
+				Tile thisTile = TileList[TileCountList.get(pos)];
+				if(rawTileNumbers.contains(thisTile.rawNumber)){
+					break;
+				}
+			}
+			
+			if(pos < 0)
+				return drawRandomTile();
+		
+		
+			Tile ret = TileList[TileCountList.get(pos)];
+			TileCountList.remove(pos);
+			return ret;
+		}
+		catch(Exception e){
+			String WTFAmI = e.toString();
+			Log.e("Table.drawNonRandomTile_Odds", WTFAmI);
 			return null;
 		}
 	}
@@ -516,19 +562,19 @@ public class Table {
 	public boolean isMultipleInWall(int rawTileNumber){
 		int idx1 = TileCountList.indexOf(rawTileNumber);
 		if(rawTileNumber == 5 && idx1 == -1)
-			idx1 = TileCountList.indexOf(5);
+			idx1 = TileCountList.indexOf(35);
 		if(rawTileNumber == 14 && idx1 == -1)
-			idx1 = TileCountList.indexOf(14);
+			idx1 = TileCountList.indexOf(36);
 		if(rawTileNumber == 23 && idx1 == -1)
-			idx1 = TileCountList.indexOf(23);
+			idx1 = TileCountList.indexOf(37);
 		
 		int idx2 = TileCountList.lastIndexOf(rawTileNumber);
-		if(rawTileNumber == 5 && idx2 == -1)
-			idx2 = TileCountList.lastIndexOf(5);
-		if(rawTileNumber == 14 && idx2 == -1)
-			idx2 = TileCountList.lastIndexOf(14);
-		if(rawTileNumber == 23 && idx2 == -1)
-			idx2 = TileCountList.lastIndexOf(23);
+		if(rawTileNumber == 5 && (idx2 == -1 || idx2 == idx1))
+			idx2 = TileCountList.lastIndexOf(35);
+		if(rawTileNumber == 14 && (idx2 == -1 || idx2 == idx1))
+			idx2 = TileCountList.lastIndexOf(36);
+		if(rawTileNumber == 23 && (idx2 == -1 || idx2 == idx1))
+			idx2 = TileCountList.lastIndexOf(37);
 		
 		//We either have 0 or 1 left
 		if(idx1 < 0 || idx2 < 0)
