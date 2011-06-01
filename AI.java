@@ -231,6 +231,37 @@ public class AI extends /*Handler*/Thread {
 				outputReady = true;
 				return;
 			}
+			
+			//If we are in riichi we have to make sure we can actually do this
+			if(pMyPlayer.riichi){
+				Globals.myAssert(false); //delete this, just a check to make sure this works
+				if(!optimalHand.isEmpty()){
+					for(int setIter = 0; setIter < optimalHand.size(); setIter++){
+						Set thisSet = optimalHand.get(setIter);
+						if(thisSet.isComplete() && !thisSet.isChi()){
+							//it's a pon
+							if(thisSet.tiles[0] == tileToCall){
+								output = 1;
+								outputReady = true;
+								return;
+							}
+						}
+					}
+					
+					//We didn't find anything
+					output = 0;
+					outputReady = true;
+					return;
+				}
+				else{
+					//Something went wrong, we don't know what our optimal hand is
+					//Just discard it to be safe
+					output = 0;
+					outputReady = true;
+					return;
+				}
+			}
+			
 			Integer primaryYaku = -1;
 			for(int i = 0; i < Globals.AIYAKUCOUNT; i++){
 				int yakuToCheck = priority[i];
@@ -242,7 +273,13 @@ public class AI extends /*Handler*/Thread {
 					//break;
 				}
 			}
-			if(primaryYaku == Globals.TOITOI || primaryYaku == Globals.SANKANTSU || primaryYaku == Globals.SANANKOU){
+			if(primaryYaku == Globals.TOITOI || primaryYaku == Globals.SANKANTSU || primaryYaku == Globals.SANANKOU || primaryYaku == Globals.HONROUTOU || primaryYaku == Globals.SHOUSANGEN){
+				output = 1;
+				outputReady = true;
+				return;
+			}
+			//If it's a dragon/wind always do it
+			if(Tile.convertRawToSuit(tileToCall) == Globals.Suits.SANGEN || Tile.convertRawToSuit(tileToCall) == Globals.Suits.KAZE){
 				output = 1;
 				outputReady = true;
 				return;
@@ -420,7 +457,7 @@ public class AI extends /*Handler*/Thread {
 	//analyzeHand has been replaced with setupAwayFrom()
 	
 	//Handlers to generate expected output
-	private int handleDiscard(){
+	protected int handleDiscard(){
 		try{
 			while(hasChanged){ //analyzeHand isn't done yet, if this happens a lot we should look into a change
 				sleep(100);
@@ -436,12 +473,14 @@ public class AI extends /*Handler*/Thread {
 			 * General Mode: we are 3 or more away from winning or have no yaku, we will just use the connections array
 			 * Lock Mode: If we are <= 2 away we will only consider tiles that are unused in SOME optimal hand
 			 */
-			if(inBailMode){
+			if(inBailMode && !pMyPlayer.powerActivated[Globals.Powers.pureVision]){
 				/**
 				 * We Have 2 sub-modes ( >_> hurray for complicated things)
 				 * 
 				 * If only 1 person is in riichi we will specifically gaurd against them
 				 * Otherwise play the safest tile in general
+				 * 
+				 * If we have the "See All" power activated we can keep playing offense
 				 */
 				if(pGameThread.getNumberInRiichi(myID) == 1){
 					int player = myID;
@@ -456,7 +495,7 @@ public class AI extends /*Handler*/Thread {
 							return activeIdx;
 					}
 				}
-				
+					
 				int[] discardCounts = pGameThread.mTable.getAllDiscardCounts(myID);
 				int highest = 0;
 				int bestIdx = -1;
@@ -485,6 +524,36 @@ public class AI extends /*Handler*/Thread {
 			}
 			
 			setupConnections(goingFor);
+			
+			/**
+			 * If we can see people's hands we will play perfect defense
+			 * 
+			 * It SHOULD be in MihokoAI, but the way this function is set up makes that awkward.
+			 * It was just easier to put it here.
+			 */
+			if(pMyPlayer.powerActivated[Globals.Powers.pureVision]){
+				int rightPlayer = (myID+1)%4;
+				int acrossPlayer = (myID+2)%4;
+				int leftPlayer = (myID+3)%4;
+				if(pGameThread.mPlayers[rightPlayer].myHand.inTenpai ||
+				   pGameThread.mPlayers[acrossPlayer].myHand.inTenpai ||
+				   pGameThread.mPlayers[leftPlayer].myHand.inTenpai)
+				{
+					for(int conIdx = 0; conIdx < 14; conIdx++){
+						Tile thisTile = pMyPlayer.myHand.getTileFromActiveIdx(conIdx);
+						if(thisTile == null)
+							continue;
+						if(pGameThread.mPlayers[rightPlayer].myHand.tenpaiTiles.contains(thisTile.rawNumber) ||
+						   pGameThread.mPlayers[acrossPlayer].myHand.tenpaiTiles.contains(thisTile.rawNumber) ||
+						   pGameThread.mPlayers[leftPlayer].myHand.tenpaiTiles.contains(thisTile.rawNumber))
+						{
+							//Never discard this tile, it's someone's ron tile
+							Connections[conIdx] = 99;
+						}
+					}
+				}
+				
+			}
 			int lowest = 1000;
 			int idx = 0;
 			
@@ -611,6 +680,8 @@ public class AI extends /*Handler*/Thread {
 			return idx;
 		}
 		catch(Exception e){
+			String WTFAmI = e.toString();
+			Log.e("AI.handleDiscard", WTFAmI);
 			return 0;
 		}
 	}
@@ -627,6 +698,7 @@ public class AI extends /*Handler*/Thread {
 			}
 			
 			Tile lastDiscard = pGameThread.mTable.getLastDiscard();
+			Globals.myAssert(lastDiscard != null);
 			
 			//Can we even call this?
 			boolean pon = pMyPlayer.myHand.canCallPon(lastDiscard);
@@ -1443,7 +1515,7 @@ public class AI extends /*Handler*/Thread {
 				pairWeight += Math.round(10 * scaler);
 				twoSidedWeight += 0;
 				oneSidedWeight += 0;
-				ponWeight += Math.round(-20 * scaler); //We realllly need to break up pons
+				ponWeight += Math.round(-30 * scaler); //We realllly need to break up pons
 				chiWeight += Math.round(-5 * scaler);
 				kanWeight += Math.round(-5 * scaler);
 				emptyWaitWeight += 0; 
@@ -1492,18 +1564,31 @@ public class AI extends /*Handler*/Thread {
 			}
 			else if(yaku == Globals.RYANPEIKOU){
 				//Tile only
+				for(int j = 1; j < 35; j++){
+					if((individualTileWeights[j] & RYANPEIKOUWEIGHT) == RYANPEIKOUWEIGHT){
+						localTileWeights[j] += Math.round(10 * scaler);
+						if(localTileWeightCounts[j] < 2)
+							localTileWeightCounts[j] = 2;
+					}
+				}
 			}
 			else if(yaku == Globals.CHINITSU){
 				for(int j = 1; j <= Globals.Suits.KAZE; j++){
 					if(individualSuitValue[j] > 0)
 						individualSuitValue[j] += Math.round(10 * scaler);	
-					else
-						individualSuitValue[j] += Math.round(-10 * scaler);	
+					else{
+						//We are giving winds/dragons a slight edge so that we can fall back to honitsu
+						if(j >= Globals.Suits.SANGEN)
+							individualSuitValue[j] += Math.round(-6 * scaler);	
+						else
+							individualSuitValue[j] += Math.round(-10 * scaler);	
+					}
 				}
 			}
 		}
 		try{
 			int[] tileCounts = pMyPlayer.myHand.getTileCounts();
+			int[] unchangedTileCounts = pMyPlayer.myHand.getTileCounts();
 			for(int thisTile = Tile.BAMBOO_START; thisTile <= Tile.LAST_TILE; thisTile++){
 				if(tileCounts[thisTile] <= 0)
 					continue;
@@ -1546,26 +1631,35 @@ public class AI extends /*Handler*/Thread {
 										continue;
 									}
 								}
-								//XX00X
-								tileCounts[thisTile+1]--;
-								temp[thisTile+1]++;
-								if(Tile.convertRawToRelative(thisTile) != 1 && Tile.convertRawToRelative(thisTile+1) != 9)
-									twoSidedChis++;
-								else
-									oneSidedChis++;
-								changeCount++;
-								foundSomething = true;
-								continue;
+								if(((Tile.convertRawToSuit(thisTile-1) == thisSuit)&&(discardCounts[thisTile-1]+unchangedTileCounts[thisTile-1] != 4)) ||
+								   ((Tile.convertRawToSuit(thisTile+2) == thisSuit)&&(discardCounts[thisTile+2]+unchangedTileCounts[thisTile+2] != 4))	){
+										//XX00X
+										tileCounts[thisTile+1]--;
+										temp[thisTile+1]++;
+										if(Tile.convertRawToRelative(thisTile) != 1 && Tile.convertRawToRelative(thisTile+1) != 9)
+											twoSidedChis++;
+										else
+											oneSidedChis++;
+										changeCount++;
+										foundSomething = true;
+										continue;
+								}
+								else //Delete this
+									Globals.myAssert(false);
 							}
 							//XX0X0
 							else if(Tile.convertRawToSuit(thisTile+2) == thisSuit){
 								if(tileCounts[thisTile+2] > 0){
-									tileCounts[thisTile+2]--;
-									temp[thisTile+2]++;
-									oneSidedChis++;
-									changeCount++;
-									foundSomething = true;
-									continue;
+									if(discardCounts[thisTile+1]+unchangedTileCounts[thisTile+1] != 4){
+										tileCounts[thisTile+2]--;
+										temp[thisTile+2]++;
+										oneSidedChis++;
+										changeCount++;
+										foundSomething = true;
+										continue;
+									}
+									else //Delete this
+										Globals.myAssert(false);
 								}
 							}
 						}
@@ -1584,26 +1678,36 @@ public class AI extends /*Handler*/Thread {
 										continue;
 									}
 								}
-								//X00XX
-								tileCounts[thisTile-1]--;
-								temp[thisTile-1]++;
-								if(Tile.convertRawToRelative(thisTile-1) != 1 && Tile.convertRawToRelative(thisTile) != 9)
-									twoSidedChis++;
-								else
-									oneSidedChis++;
-								changeCount++;
-								foundSomething = true;
-								continue;
+								
+								if(((Tile.convertRawToSuit(thisTile-2) == thisSuit)&&(discardCounts[thisTile-2]+unchangedTileCounts[thisTile-2] != 4)) ||
+								   ((Tile.convertRawToSuit(thisTile+1) == thisSuit)&&(discardCounts[thisTile+1]+unchangedTileCounts[thisTile+1] != 4))	){
+										//X00XX
+										tileCounts[thisTile-1]--;
+										temp[thisTile-1]++;
+										if(Tile.convertRawToRelative(thisTile-1) != 1 && Tile.convertRawToRelative(thisTile) != 9)
+											twoSidedChis++;
+										else
+											oneSidedChis++;
+										changeCount++;
+										foundSomething = true;
+										continue;
+								}
+								else //Delete this
+									Globals.myAssert(false);
 							}
 							//0X0XX
 							else if(Tile.convertRawToSuit(thisTile-2) == thisSuit){
 								if(tileCounts[thisTile-2] > 0){
-									tileCounts[thisTile-2]--;
-									temp[thisTile-2]++;
-									oneSidedChis++;
-									changeCount++;
-									foundSomething = true;
-									continue;
+									if(discardCounts[thisTile-1]+unchangedTileCounts[thisTile-1] != 4){
+										tileCounts[thisTile-2]--;
+										temp[thisTile-2]++;
+										oneSidedChis++;
+										changeCount++;
+										foundSomething = true;
+										continue;
+									}
+									else //Delete this
+										Globals.myAssert(false);
 								}
 							}
 						}
