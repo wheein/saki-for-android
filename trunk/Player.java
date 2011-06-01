@@ -47,7 +47,7 @@ public class Player {
 		currentWind = Globals.Winds.EAST;
 		AIControlled = true;
 		
-		characterID = Globals.Characters.SAKI;
+		characterID = -1;
 		powerActivated = new boolean[Globals.Powers.COUNT];
 		for(int i = 0; i < Globals.Powers.COUNT; i++){
 			powerActivated[i] = false;
@@ -234,7 +234,7 @@ public class Player {
 			}
 			for(int i = 0; i <= myHand.activeHandSize; i++){
 				Tile tempTile = myHand.getRawTileAt(myHand.activeHand[i]);
-				Globals.myAssert(tempTile != null);
+				//Globals.myAssert(tempTile != null);
 				if(tempTile == null)
 					continue;
 				if(tempTile.equals(tileToCall)){
