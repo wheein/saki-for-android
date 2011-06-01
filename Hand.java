@@ -495,6 +495,23 @@ public class Hand extends Object{
 		
 	}
 	
+	public Tile getTileFromActiveIdx(int idx){
+		try{
+			if(activeHand[idx] < 0)
+				return null;
+			if(idx < 0 || idx > 14)
+				return null;
+			
+			Tile ret = rawHand[activeHand[idx]];
+			return ret;
+		}
+		catch(Exception e){
+			String WTFAmI = e.toString();
+			Log.e("Hand.getTileFromActiveIdx", WTFAmI);
+			return null;
+		}
+	}
+	
 	//These return the first instance of a tile
 	public int getFirstTile(int rawNumber){
 		int thisSuit = Tile.convertRawToSuit(rawNumber);
