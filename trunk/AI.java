@@ -718,13 +718,6 @@ public class AI extends /*Handler*/Thread {
 			if(!pon && !chi && !kan/* && !ron*/)
 				return -1;
 			
-			if(bCallEverythingMode){
-				if(pon)
-					return Globals.CMD.PON;
-				if(kan)
-					return Globals.CMD.KAN;
-			}
-			
 			Integer primaryYaku = -1;
 			Integer subYaku = -1;
 			for(int i = 0; i < Globals.AIYAKUCOUNT; i++){
@@ -744,6 +737,43 @@ public class AI extends /*Handler*/Thread {
 			tilesToUse[0] = -1;
 			tilesToUse[1] = -1;
 			tilesToUse[2] = -1;
+			
+			if(bCallEverythingMode){
+				if(pon)
+					return Globals.CMD.PON;
+				if(kan)
+					return Globals.CMD.KAN;
+				if(chi){
+					int[] tileCounts = pMyPlayer.myHand.getTileCounts();
+					if(tileCounts[lastDiscard.rawNumber] == 0){
+						if(Tile.convertRawToSuit(lastDiscard.rawNumber+1) == lastDiscard.getSuit()){
+							if(Tile.convertRawToSuit(lastDiscard.rawNumber-1) == lastDiscard.getSuit()){
+								if(tileCounts[lastDiscard.rawNumber-1] == 1 && tileCounts[lastDiscard.rawNumber+1] == 1){
+									tilesToUse[0] = pMyPlayer.myHand.getFirstTile(lastDiscard.rawNumber-1);
+									tilesToUse[1] = pMyPlayer.myHand.getFirstTile(lastDiscard.rawNumber+1);
+									return Globals.CMD.CHI;
+								}
+							}
+							if(Tile.convertRawToSuit(lastDiscard.rawNumber+2) == lastDiscard.getSuit()){
+								if(tileCounts[lastDiscard.rawNumber+2] == 1 && tileCounts[lastDiscard.rawNumber+1] == 1){
+									tilesToUse[0] = pMyPlayer.myHand.getFirstTile(lastDiscard.rawNumber+1);
+									tilesToUse[1] = pMyPlayer.myHand.getFirstTile(lastDiscard.rawNumber+2);
+									return Globals.CMD.CHI;
+								}
+							}
+						}
+						if(Tile.convertRawToSuit(lastDiscard.rawNumber-1) == lastDiscard.getSuit()){
+							if(Tile.convertRawToSuit(lastDiscard.rawNumber-2) == lastDiscard.getSuit()){
+								if(tileCounts[lastDiscard.rawNumber-2] == 1 && tileCounts[lastDiscard.rawNumber-1] == 1){
+									tilesToUse[0] = pMyPlayer.myHand.getFirstTile(lastDiscard.rawNumber-1);
+									tilesToUse[1] = pMyPlayer.myHand.getFirstTile(lastDiscard.rawNumber-2);
+									return Globals.CMD.CHI;
+								}
+							}
+						}
+					}
+				}
+			}
 
 			if(primaryYaku != -1){
 				int[] discardCounts = pGameThread.mTable.getAllDiscardCounts(myID);
@@ -856,55 +886,34 @@ public class AI extends /*Handler*/Thread {
 							}
 							
 							if((lastDiscardNumber == 1 && right)||(lastDiscardNumber == 7 && right)){
-								int counter = 0;
-								int thisSuit = lastDiscard.getSuit();
-								while(pMyPlayer.myHand.suits[thisSuit][counter] != -1){
-									Tile thisTile = pMyPlayer.myHand.getRawTileAt(pMyPlayer.myHand.suits[thisSuit][counter]);
-									if(thisTile.rawNumber == (lastDiscard.rawNumber +1))
-										tilesToUse[0] = pMyPlayer.myHand.suits[thisSuit][counter];
-									else if(thisTile.rawNumber == (lastDiscard.rawNumber +2))
-										tilesToUse[1] = pMyPlayer.myHand.suits[thisSuit][counter];
-									counter++;
+								int tempTile1 = pMyPlayer.myHand.getFirstTile(lastDiscard.rawNumber+1);
+								int tempTile2 = pMyPlayer.myHand.getFirstTile(lastDiscard.rawNumber+2);
+								if(tempTile1 != -1 && tempTile2 != -1){
+									tilesToUse[0] = tempTile1;
+									tilesToUse[1] = tempTile2;
 								}
+								
 							}
 							else if((lastDiscardNumber == 2 && center)||(lastDiscardNumber == 8 && center)){
-								int counter = 0;
-								int thisSuit = lastDiscard.getSuit();
-								while(pMyPlayer.myHand.suits[thisSuit][counter] != -1){
-									Tile thisTile = pMyPlayer.myHand.getRawTileAt(pMyPlayer.myHand.suits[thisSuit][counter]);
-									if(thisTile.rawNumber == (lastDiscard.rawNumber +1))
-										tilesToUse[0] = pMyPlayer.myHand.suits[thisSuit][counter];
-									else if(thisTile.rawNumber == (lastDiscard.rawNumber -1))
-										tilesToUse[1] = pMyPlayer.myHand.suits[thisSuit][counter];
-									counter++;
+								int tempTile1 = pMyPlayer.myHand.getFirstTile(lastDiscard.rawNumber-1);
+								int tempTile2 = pMyPlayer.myHand.getFirstTile(lastDiscard.rawNumber+1);
+								if(tempTile1 != -1 && tempTile2 != -1){
+									tilesToUse[0] = tempTile1;
+									tilesToUse[1] = tempTile2;
 								}
+								
 							}
 							else if((lastDiscardNumber == 3 && left)||(lastDiscardNumber == 9 && left)){
-								int counter = 0;
-								int thisSuit = lastDiscard.getSuit();
-								while(pMyPlayer.myHand.suits[thisSuit][counter] != -1){
-									Tile thisTile = pMyPlayer.myHand.getRawTileAt(pMyPlayer.myHand.suits[thisSuit][counter]);
-									if(thisTile.rawNumber == (lastDiscard.rawNumber -1))
-										tilesToUse[0] = pMyPlayer.myHand.suits[thisSuit][counter];
-									else if(thisTile.rawNumber == (lastDiscard.rawNumber -2))
-										tilesToUse[1] = pMyPlayer.myHand.suits[thisSuit][counter];
-									counter++;
+								int tempTile1 = pMyPlayer.myHand.getFirstTile(lastDiscard.rawNumber-1);
+								int tempTile2 = pMyPlayer.myHand.getFirstTile(lastDiscard.rawNumber-2);
+								if(tempTile1 != -1 && tempTile2 != -1){
+									tilesToUse[0] = tempTile1;
+									tilesToUse[1] = tempTile2;
 								}
-							}
-							int counter = 0;
-							int tileCounter = 0;
-							for(int thisSuit = Globals.Suits.BAMBOO; thisSuit <= Globals.Suits.MAN; thisSuit++){
-								counter = 0;
 								
-								while(pMyPlayer.myHand.suits[thisSuit][counter] != -1){
-									Tile thisTile = pMyPlayer.myHand.getRawTileAt(pMyPlayer.myHand.suits[thisSuit][counter]);
-									if(thisTile.equals(lastDiscard))
-										tilesToUse[tileCounter++] = pMyPlayer.myHand.suits[thisSuit][counter];
-									counter++;
-								}
 							}
 							
-							if(tilesToUse[0] != -1){
+							if(tilesToUse[0] != -1 && (tileCounts[lastDiscard.rawNumber] == 0 || lastDiscardNumber == 9 || lastDiscardNumber == 1)){
 								//pMyPlayer.myHand.meld(lastDiscard, tiles[0], tiles[1], -1);
 								return Globals.CMD.CHI;
 							}
@@ -913,7 +922,7 @@ public class AI extends /*Handler*/Thread {
 					else if(pon || kan){
 						if(lastDiscard.getNumber() == 1 || lastDiscard.getNumber() == 9 ||
 						   lastDiscard.getType() == Globals.HONOR){
-							int counter = 0;
+							/*int counter = 0;
 							int tileCounter = 0;
 							for(int thisSuit = Globals.Suits.BAMBOO; thisSuit <= Globals.Suits.KAZE; thisSuit++){
 								counter = 0;
@@ -924,7 +933,7 @@ public class AI extends /*Handler*/Thread {
 										tilesToUse[tileCounter++] = pMyPlayer.myHand.suits[thisSuit][counter];
 									counter++;
 								}
-							}
+							}*/
 							if(kan){
 								//pMyPlayer.myHand.meld(lastDiscard, tiles[0], tiles[1], tiles[2]);
 								return Globals.CMD.KAN;
@@ -1644,8 +1653,8 @@ public class AI extends /*Handler*/Thread {
 										foundSomething = true;
 										continue;
 								}
-								else //Delete this
-									Globals.myAssert(false);
+								//else //Delete this
+								//	Globals.myAssert(false);
 							}
 							//XX0X0
 							else if(Tile.convertRawToSuit(thisTile+2) == thisSuit){
@@ -1658,8 +1667,8 @@ public class AI extends /*Handler*/Thread {
 										foundSomething = true;
 										continue;
 									}
-									else //Delete this
-										Globals.myAssert(false);
+									//else //Delete this
+									//	Globals.myAssert(false);
 								}
 							}
 						}
@@ -1692,8 +1701,8 @@ public class AI extends /*Handler*/Thread {
 										foundSomething = true;
 										continue;
 								}
-								else //Delete this
-									Globals.myAssert(false);
+								//else //Delete this
+								//	Globals.myAssert(false);
 							}
 							//0X0XX
 							else if(Tile.convertRawToSuit(thisTile-2) == thisSuit){
@@ -1706,8 +1715,8 @@ public class AI extends /*Handler*/Thread {
 										foundSomething = true;
 										continue;
 									}
-									else //Delete this
-										Globals.myAssert(false);
+									//else //Delete this
+									//	Globals.myAssert(false);
 								}
 							}
 						}
