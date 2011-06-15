@@ -5,7 +5,7 @@ public class Globals {
 	//public static int SCORESCREEN = 1;
 	
 	//Others
-	public static String VERSION = "v0.2.0 Beta";
+	public static String VERSION = "v0.2.1 Beta";
 	
 	public static int SIMPLE = 1;
 	public static int TERMINAL = 2;
@@ -113,6 +113,8 @@ public class Globals {
 		public static int pureVision = 4;
 		public static int dealBased = 5;
 		public static int COUNT = 6;
+		
+		
 	}
 	
 	//Character IDs
@@ -280,12 +282,7 @@ public class Globals {
 		}
 		
 		/**
-		 * Return must be 6 lines!....er 4
-		 *Switching to a bullet point format because it's easier
-		 * Text size is based off of the first line, so pad it to the max amount of space needed
-		 * @param CharID
-		 * @param bJapanese
-		 * @return
+		 * Return must be 6 lines!....er 4 lines
 		 */
 		public static String[] getBio(int CharID, boolean bJapanese){
 			if(CharID == SAKI){
@@ -591,6 +588,16 @@ public class Globals {
 					return "素人のまぐれ";
 				return "Beginner's Luck";
 			}
+			else if(CharID == KANA){
+				if(bJapanese)
+					return "猫の咆哮";
+				return "Kitty Roar";
+			}
+			else if(CharID == YUUKI){
+				if(bJapanese)
+					return "タコの力";
+				return "Taco Power";
+			}
 			else{
 				if(bJapanese)
 					return "無い";
@@ -609,20 +616,129 @@ public class Globals {
 			public static int BUBBLE_LEFT = 0;
 			public static int BUBBLE_RIGHT = 1;
 			public static int LOGO = 2;
-			public static int START_BTN = 3;
-			public static int OK_BTN = 4;
-			public static int CENTER = 5;
-			public static int LEFT_ARROW = 6;
-			public static int RIGHT_ARROW = 7;
-			public static int OK_SQUARE_BTN = 8;
-			public static int HALF_LEFT_ARROW = 9;
-			public static int HALF_RIGHT_ARROW = 10;
-			public static int RED_OUTLINE = 11;
-			public static int LIGHTNING = 12;
-			public static int BLANK_BUTTON = 13;
+			public static int CENTER = 3;
+			public static int HALF_LEFT_ARROW = 4;
+			public static int HALF_RIGHT_ARROW = 5;
+			public static int RED_OUTLINE = 6;
+			public static int LIGHTNING = 7;
+			public static int RIICHISTICK = 8;
+			public static int COUNTERSTICK = 9;
 			
-			public static int COUNT = 14;
+			public static int COUNT = 10;
 		}
+		
+		public static class TileMisc{
+			public static int EAST_BLANK = 0;
+			public static int SOUTH_BLANK = 1;
+			public static int WEST_BLANK = 2;
+			public static int NORTH_BLANK = 3;
+			public static int EAST_INVERT_BLANK = 4;
+			public static int SOUTH_INVERT_BLANK = 5;
+			public static int WEST_INVERT_BLANK = 6;
+			public static int NORTH_INVERT_BLANK = 7;
+			public static int MINI_BLANK = 8;
+			public static int SHELL_TOP = 9;
+			public static int SHELL_RIGHT = 10;
+			public static int SHELL_BOTTOM = 11;
+			public static int SHELL_LEFT = 12;
+			public static int MINI_SHELL_TOP = 13;
+			public static int MINI_SHELL_RIGHT = 14;
+			public static int MINI_SHELL_BOTTOM = 15;
+			public static int MINI_SHELL_LEFT = 16;
+			public static int SOUTH_SHELL_TOP = 17;
+			public static int SOUTH_SHELL_RIGHT = 18;
+			public static int SOUTH_SHELL_BOTTOM = 19;
+			public static int SOUTH_SHELL_LEFT = 20;
+			public static int WEST_SHELL_TOP = 21;
+			public static int WEST_SHELL_RIGHT = 22;
+			public static int WEST_SHELL_BOTTOM = 23;
+			public static int WEST_SHELL_LEFT = 24;
+			public static int NORTH_SHELL_TOP = 25;
+			public static int NORTH_SHELL_RIGHT = 26;
+			public static int NORTH_SHELL_BOTTOM = 27;
+			public static int NORTH_SHELL_LEFT = 28;
+			
+			//Inverted
+			public static int SHELL_INVERT_TOP = 29;
+			public static int SHELL_INVERT_RIGHT = 30;
+			public static int SHELL_INVERT_BOTTOM = 31;
+			public static int SHELL_INVERT_LEFT = 32;
+			public static int MINI_INVERT_SHELL_TOP = 33;
+			public static int MINI_INVERT_SHELL_RIGHT = 34;
+			public static int MINI_INVERT_SHELL_BOTTOM = 35;
+			public static int MINI_INVERT_SHELL_LEFT = 36;
+			public static int SOUTH_INVERT_SHELL_TOP = 37;
+			public static int SOUTH_INVERT_SHELL_RIGHT = 38;
+			public static int SOUTH_INVERT_SHELL_BOTTOM = 39;
+			public static int SOUTH_INVERT_SHELL_LEFT = 40;
+			public static int WEST_INVERT_SHELL_TOP = 41;
+			public static int WEST_INVERT_SHELL_RIGHT = 42;
+			public static int WEST_INVERT_SHELL_BOTTOM = 43;
+			public static int WEST_INVERT_SHELL_LEFT = 44;
+			public static int NORTH_INVERT_SHELL_TOP = 45;
+			public static int NORTH_INVERT_SHELL_RIGHT = 46;
+			public static int NORTH_INVERT_SHELL_BOTTOM = 47;
+			public static int NORTH_INVERT_SHELL_LEFT = 48;
+			
+			//Others
+			public static int MINI_INVERT_BLANK = 49;
+			public static int BIG_SHELL_TOP = 50;
+			public static int BIG_SHELL_RIGHT = 51;
+			public static int BIG_SHELL_BOTTOM = 52;
+			public static int BIG_SHELL_LEFT = 53;
+			
+			public static int COUNT = 54;
+		}
+	}
+	
+	public static class ChangeLog{
+		public static String[] FullLog = new String[]{
+		"v0.2.1 Beta - XX/XX/11",
+		"- Replace all Bitmap buttons with programmitically drawn ones",
+		"- Add FAQ, Change Log, Special Powers, Rules, & Yaku List under About/Help",
+		"- Replaced all tile images",
+		"- Added 'Simplified Tiles' option",
+		"- Added 'Drag To Discard' option",
+		"- Moved 'Japanese' to the settings menu",
+		"- Fix a ton of alignment issues",
+		"- Fixed issue where we would hang around in RAM forever",
+		"- Added random and undo options to character select screen",
+		"- Added new icon for the app",
+		"- Fixed issue with tsumo payments not being divided correctly",
+		"- Better handling the back button/exiting the app",
+		"- Draw red tiles on the score screen",
+		"- Added powers for Yuuki and Kana",
+		"- Improved text scaling in a bunch of areas",
+		"",
+		"v0.2.0 Beta - 06/01/11",
+		"- All Characters are now in the game",
+		"- 3 new super powers added",
+		"- Result screen added",
+		"- Stat tracking and stat screen added (requires sd card)",
+		"- Redesigned character select screen",
+		"- Slide to discard added",
+		"- Added East-Only option",
+		"- A lightning bolt will show when someone's powers activate",
+		"- Game will actually go back to the title screen after a game is over",
+		"- Game will end if a score goes below 0",
+		"- Actually draw the red 5's red",
+		"- Abortive draw scenarios added",
+		"",
+		"v0.1.1 Alpha - 05/11/11",
+		"- 4 Characters added and a character select screen",
+		"- Saki, Momoka, and Koromo have their respective super powers (see below)",
+		"- Fixed an issue where a player in riichi would sometimes be unable to call ron",
+		"- Fixed an issue where Chinitsu hands would sometimes cause the game to glitch",
+		"- The AI will now open up their hand for sanshoku doujun and doukou ",
+		"- English is now the default language ",
+		"- Fixed the double app drawer icon issue",
+		"- Characters will announce Noten/Tenpai after an exhaustive draw",
+		"- When asked to call a tile it will show you what tile you are being asked about in the center",
+		"",
+		"v0.1.0 Alpha - 04/25/11"
+		};
+		
+		public static int COUNT = 43;
 	}
 	
 	//Scoring Table
