@@ -1,10 +1,12 @@
 package mahjong.riichi;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Random;
 
 import mahjong.riichi.R;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -16,6 +18,7 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.os.Handler;
 import android.os.Message;
@@ -23,6 +26,7 @@ import android.preference.PreferenceManager;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.GestureDetector;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
@@ -34,13 +38,9 @@ import android.view.View;
  * Please refer to UI Prototype.png to see what we are trying to do here
  * 
  * We are going under the assumption that our screen size is at least 480x294
- * (because that was the default size of the emulator).  If it's bigger than that
- * we will letterbox.  If it's smaller....well we have a problem.  We will do our 
- * best to try and scale things down, but we will have to have some lower limit (TBD)
- * 
- * From now on absolutely EVERYTHING must be done will relative measurements (ie
- * no absolute cordinates/sizes)
- * 
+ * (because that was the default size of the emulator). Android will scale all the images
+ * for us so as long as we are good about using relative coordinates/sizes we should be fine
+ *
  * Also the multi-activity thing doesn't seems like a great idea.  So all drawing will be 
  * moved here from now on 
  *
@@ -76,6 +76,26 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         private int miniTileHeight = 0;
         private int portraitWidth = 0;
         private int portraitHeight = 0;
+        private int shellTopWidth = 0;
+        private int shellTopHeight = 0;
+        private int shellLeftWidth = 0;
+        private int shellLeftHeight = 0;
+        private int shellRightWidth = 0;
+        private int shellRightHeight = 0;
+        private int shellBottomWidth = 0;
+        private int shellBottomHeight = 0;
+        private int miniShellTopWidth = 0;
+        private int miniShellTopHeight = 0;
+        private int miniShellLeftWidth = 0;
+        private int miniShellLeftHeight = 0;
+        private int miniShellRightWidth = 0;
+        private int miniShellRightHeight = 0;
+        private int miniShellBottomWidth = 0;
+        private int miniShellBottomHeight = 0;
+        private int blankTileWidth = 0;
+        private int blankTileHeight = 0;
+        private int miniBlankTileWidth = 0;
+        private int miniBlankTileHeight = 0;
         
         
 		/** Handle to the surface manager object we interact with */
@@ -93,11 +113,10 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
          */
         Bitmap[] TileBMPs;
         Bitmap[] TileBMPs50PercentUser;
-        Bitmap[] TileBMPsUser;
-        Bitmap[] TileBMPsUserHorizontal;
         Bitmap[] TileBMPsSouthRotated;
         Bitmap[] TileBMPsWestRotated;
         Bitmap[] TileBMPsNorthRotated;
+        Bitmap[] tileMisc;
         Bitmap[][] characterPortraits;
         Bitmap[] miscBitmaps;
         private Bitmap mBackgroundImage;
@@ -128,7 +147,7 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         private int callToShow;
         private int playerCalling;
         private boolean[] showHand;
-        private boolean bTitleScreen;
+        public boolean bTitleScreen;
         private boolean bPlayerSelect;
         private boolean bScoreScreen;
         private boolean bResultScreen;
@@ -140,6 +159,9 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         public boolean bDebug;
         public boolean bPowers;
         public boolean bSlideToDiscard;
+        public boolean bEnlargeTiles;
+        public boolean bDoubleTap;
+        public boolean bDragToDiscard;
         
         /**
          * Selection stuff
@@ -197,94 +219,44 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 	            Resources res = context.getResources();
 	            TileBMPs = new Bitmap[39];
 	            TileBMPs50PercentUser = new Bitmap[39];
-	            TileBMPsUser = new Bitmap[39];
-	            TileBMPsUserHorizontal = new Bitmap[39];
+	           // TileBMPsUser = new Bitmap[39];
+	           // TileBMPsUserHorizontal = new Bitmap[39];
 	            TileBMPsSouthRotated = new Bitmap[39];
 	            TileBMPsWestRotated = new Bitmap[39];
 	            TileBMPsNorthRotated = new Bitmap[39];
+	            
+	            tileMisc = new Bitmap[Globals.Graphics.TileMisc.COUNT];
+	            /*tileMisc[Globals.Graphics.TileMisc.SHELL_TOP] = BitmapFactory.decodeResource(res, R.drawable.shell_top);
+	        	tileMisc[Globals.Graphics.TileMisc.SHELL_RIGHT] = BitmapFactory.decodeResource(res, R.drawable.shell_right);
+	        	tileMisc[Globals.Graphics.TileMisc.SHELL_BOTTOM] = BitmapFactory.decodeResource(res, R.drawable.shell_bottom);
+	        	tileMisc[Globals.Graphics.TileMisc.SHELL_LEFT] = BitmapFactory.decodeResource(res, R.drawable.shell_left);
+	        	tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_TOP] = BitmapFactory.decodeResource(res, R.drawable.shell_top_invert);
+	        	tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_RIGHT] = BitmapFactory.decodeResource(res, R.drawable.shell_right_invert);
+	        	tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_BOTTOM] = BitmapFactory.decodeResource(res, R.drawable.shell_bottom_invert);
+	        	tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_LEFT] = BitmapFactory.decodeResource(res, R.drawable.shell_left_invert);
+	        	tileMisc[Globals.Graphics.TileMisc.EAST_BLANK] = BitmapFactory.decodeResource(res, R.drawable.east_blank);
+	        	tileMisc[Globals.Graphics.TileMisc.SOUTH_BLANK] = BitmapFactory.decodeResource(res, R.drawable.south_blank);
+	        	tileMisc[Globals.Graphics.TileMisc.WEST_BLANK] = BitmapFactory.decodeResource(res, R.drawable.west_blank);
+	        	tileMisc[Globals.Graphics.TileMisc.NORTH_BLANK] = BitmapFactory.decodeResource(res, R.drawable.north_blank);
+	        	tileMisc[Globals.Graphics.TileMisc.EAST_INVERT_BLANK] = BitmapFactory.decodeResource(res, R.drawable.east_blank_invert);
+	        	tileMisc[Globals.Graphics.TileMisc.SOUTH_INVERT_BLANK] = BitmapFactory.decodeResource(res, R.drawable.south_blank_invert);
+	        	tileMisc[Globals.Graphics.TileMisc.WEST_INVERT_BLANK] = BitmapFactory.decodeResource(res, R.drawable.west_blank_invert);
+	        	tileMisc[Globals.Graphics.TileMisc.NORTH_INVERT_BLANK] = BitmapFactory.decodeResource(res, R.drawable.north_blank_invert);
+	        	
+	        	shellTopWidth = tileMisc[Globals.Graphics.TileMisc.SHELL_TOP].getWidth();
+	        	shellTopHeight = tileMisc[Globals.Graphics.TileMisc.SHELL_TOP].getHeight();
+	        	shellRightWidth = tileMisc[Globals.Graphics.TileMisc.SHELL_RIGHT].getWidth();
+	        	shellRightHeight = tileMisc[Globals.Graphics.TileMisc.SHELL_RIGHT].getHeight();
+	        	shellLeftWidth = tileMisc[Globals.Graphics.TileMisc.SHELL_LEFT].getWidth();
+	        	shellLeftHeight = tileMisc[Globals.Graphics.TileMisc.SHELL_LEFT].getHeight();
+	        	shellBottomWidth = tileMisc[Globals.Graphics.TileMisc.SHELL_BOTTOM].getWidth();
+	        	shellBottomHeight = tileMisc[Globals.Graphics.TileMisc.SHELL_BOTTOM].getHeight();
+	        	blankTileWidth = tileMisc[Globals.Graphics.TileMisc.EAST_BLANK].getWidth();
+	        	blankTileHeight = tileMisc[Globals.Graphics.TileMisc.EAST_BLANK].getHeight();*/
+	            
 	            characterPortraits = new Bitmap[Globals.Characters.COUNT][Globals.Characters.Graphics.COUNT];
 	            miscBitmaps = new Bitmap[Globals.Graphics.MISC.COUNT];
-	            
-	            //Initialize Bitmaps
-	            TileBMPs[0] = BitmapFactory.decodeResource(res, R.drawable.blank);
-	            TileBMPs[1] = BitmapFactory.decodeResource(res, R.drawable.bam1);
-	            TileBMPs[2] = BitmapFactory.decodeResource(res, R.drawable.bam2);
-	            TileBMPs[3] = BitmapFactory.decodeResource(res, R.drawable.bam3);
-	            TileBMPs[4] = BitmapFactory.decodeResource(res, R.drawable.bam4);
-	            TileBMPs[5] = BitmapFactory.decodeResource(res, R.drawable.bam5);
-	            TileBMPs[6] = BitmapFactory.decodeResource(res, R.drawable.bam6);
-	            TileBMPs[7] = BitmapFactory.decodeResource(res, R.drawable.bam7);
-	            TileBMPs[8] = BitmapFactory.decodeResource(res, R.drawable.bam8);
-	            TileBMPs[9] = BitmapFactory.decodeResource(res, R.drawable.bam9);
-	            
-	            TileBMPs[10] = BitmapFactory.decodeResource(res, R.drawable.pin1);
-	            TileBMPs[11] = BitmapFactory.decodeResource(res, R.drawable.pin2);
-	            TileBMPs[12] = BitmapFactory.decodeResource(res, R.drawable.pin3);
-	            TileBMPs[13] = BitmapFactory.decodeResource(res, R.drawable.pin4);
-	            TileBMPs[14] = BitmapFactory.decodeResource(res, R.drawable.pin5);
-	            TileBMPs[15] = BitmapFactory.decodeResource(res, R.drawable.pin6);
-	            TileBMPs[16] = BitmapFactory.decodeResource(res, R.drawable.pin7);
-	            TileBMPs[17] = BitmapFactory.decodeResource(res, R.drawable.pin8);
-	            TileBMPs[18] = BitmapFactory.decodeResource(res, R.drawable.pin9);
-	            
-	            TileBMPs[19] = BitmapFactory.decodeResource(res, R.drawable.man1);
-	            TileBMPs[20] = BitmapFactory.decodeResource(res, R.drawable.man2);
-	            TileBMPs[21] = BitmapFactory.decodeResource(res, R.drawable.man3);
-	            TileBMPs[22] = BitmapFactory.decodeResource(res, R.drawable.man4);
-	            TileBMPs[23] = BitmapFactory.decodeResource(res, R.drawable.man5);
-	            TileBMPs[24] = BitmapFactory.decodeResource(res, R.drawable.man6);
-	            TileBMPs[25] = BitmapFactory.decodeResource(res, R.drawable.man7);
-	            TileBMPs[26] = BitmapFactory.decodeResource(res, R.drawable.man8);
-	            TileBMPs[27] = BitmapFactory.decodeResource(res, R.drawable.man9);
-	            
-	            TileBMPs[28] = BitmapFactory.decodeResource(res, R.drawable.red);
-	            TileBMPs[29] = BitmapFactory.decodeResource(res, R.drawable.white);
-	            TileBMPs[30] = BitmapFactory.decodeResource(res, R.drawable.green);
-	            
-	            TileBMPs[31] = BitmapFactory.decodeResource(res, R.drawable.east);
-	            TileBMPs[32] = BitmapFactory.decodeResource(res, R.drawable.south);
-	            TileBMPs[33] = BitmapFactory.decodeResource(res, R.drawable.west);
-	            TileBMPs[34] = BitmapFactory.decodeResource(res, R.drawable.north);
-	            
-	            TileBMPs[35] = BitmapFactory.decodeResource(res, R.drawable.bam5red);
-	            TileBMPs[36] = BitmapFactory.decodeResource(res, R.drawable.pin5red);
-	            TileBMPs[37] = BitmapFactory.decodeResource(res, R.drawable.man5red);
-	            
-	            Matrix RotateAndScale = new Matrix();
-	            tileWidth = TileBMPs[1].getWidth();
-	            tileHeight = TileBMPs[1].getHeight();
-	            
-	        	for(int i = 0; i < 38; i++){
-	        		RotateAndScale.reset();
-	        		RotateAndScale.setScale(0.5f, 0.5f);
-		        	//RotateAndScale.preRotate(90.0f);
-	        		TileBMPs50PercentUser[i] = Bitmap.createBitmap(TileBMPs[i], 0, 0, tileWidth, tileHeight, RotateAndScale, false);
-	        	
-	        		RotateAndScale.reset();
-		        	//RotateAndScale.setRotate(90.0f);
-	        		TileBMPsUser[i] = Bitmap.createBitmap(TileBMPs[i], 0, 0, tileWidth, tileHeight, RotateAndScale, false);
-	        		
-	        		RotateAndScale.reset();
-		        	RotateAndScale.preRotate(90.0f);
-		        	TileBMPsUserHorizontal[i] = Bitmap.createBitmap(TileBMPs[i], 0, 0, tileWidth, tileHeight, RotateAndScale, false);
-		        	
-	        		RotateAndScale.reset();
-	        		RotateAndScale.setScale(0.5f, 0.5f);
-		        	RotateAndScale.preRotate(270.0f);
-		        	TileBMPsSouthRotated[i] = Bitmap.createBitmap(TileBMPs[i], 0, 0, tileWidth, tileHeight, RotateAndScale, false);
-	        		
-	        		RotateAndScale.reset();
-	        		RotateAndScale.setScale(0.5f, 0.5f);
-		        	RotateAndScale.preRotate(180.0f);
-		        	TileBMPsWestRotated[i] = Bitmap.createBitmap(TileBMPs[i], 0, 0, tileWidth, tileHeight, RotateAndScale, false);
-	        		
-	        		RotateAndScale.reset();
-	        		RotateAndScale.setScale(0.5f, 0.5f);
-		        	RotateAndScale.preRotate(90.0f);
-		        	TileBMPsNorthRotated[i] = Bitmap.createBitmap(TileBMPs[i], 0, 0, tileWidth, tileHeight, RotateAndScale, false);
-	        		
-	        	}
-	            
+          
 	            mBackgroundImage = BitmapFactory.decodeResource(res, R.drawable.background);
         
 	            Buttons = new Bitmap[8];
@@ -385,27 +357,21 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 	            characterPortraits[Globals.Characters.MUTSUKI][Globals.Characters.Graphics.FULL] = BitmapFactory.decodeResource(res, R.drawable.mutsuki_full);
 	            
 	          //Default Values
-	            miniTileWidth = TileBMPsWestRotated[1].getWidth();
-	            miniTileHeight = TileBMPsWestRotated[1].getHeight();
 	            portraitWidth = characterPortraits[Globals.Characters.SAKI][Globals.Characters.Graphics.NEUTRAL].getWidth();
 	            portraitHeight = characterPortraits[Globals.Characters.SAKI][Globals.Characters.Graphics.NEUTRAL].getHeight();
+	            
+	            loadTileBitmaps();
 	            
 	            //Misc
 	            miscBitmaps[Globals.Graphics.MISC.BUBBLE_LEFT] = BitmapFactory.decodeResource(res, R.drawable.bubble);
 	            miscBitmaps[Globals.Graphics.MISC.BUBBLE_RIGHT] = BitmapFactory.decodeResource(res, R.drawable.bubbleright);
 	            miscBitmaps[Globals.Graphics.MISC.LOGO] = BitmapFactory.decodeResource(res, R.drawable.logo);
-	            miscBitmaps[Globals.Graphics.MISC.START_BTN] = BitmapFactory.decodeResource(res, R.drawable.start);
-	            miscBitmaps[Globals.Graphics.MISC.OK_BTN] = BitmapFactory.decodeResource(res, R.drawable.ok);
-	            miscBitmaps[Globals.Graphics.MISC.CENTER] = BitmapFactory.decodeResource(res, R.drawable.center);
-	            miscBitmaps[Globals.Graphics.MISC.CENTER] = Bitmap.createScaledBitmap(miscBitmaps[Globals.Graphics.MISC.CENTER], (miniTileWidth*6), (miniTileWidth*6), true);
-	            miscBitmaps[Globals.Graphics.MISC.LEFT_ARROW] = BitmapFactory.decodeResource(res, R.drawable.left_arrow);
-	            miscBitmaps[Globals.Graphics.MISC.RIGHT_ARROW] = BitmapFactory.decodeResource(res, R.drawable.right_arrow);
-	            miscBitmaps[Globals.Graphics.MISC.OK_SQUARE_BTN] = BitmapFactory.decodeResource(res, R.drawable.ok_square);
 	            miscBitmaps[Globals.Graphics.MISC.HALF_LEFT_ARROW] = BitmapFactory.decodeResource(res, R.drawable.half_left_arrow);
 	            miscBitmaps[Globals.Graphics.MISC.HALF_RIGHT_ARROW] = BitmapFactory.decodeResource(res, R.drawable.half_right_arrow);
 	            miscBitmaps[Globals.Graphics.MISC.RED_OUTLINE] = BitmapFactory.decodeResource(res, R.drawable.red_outline);
 	            miscBitmaps[Globals.Graphics.MISC.LIGHTNING] = BitmapFactory.decodeResource(res, R.drawable.lightning);
-	            miscBitmaps[Globals.Graphics.MISC.BLANK_BUTTON] = BitmapFactory.decodeResource(res, R.drawable.blank_button);
+	            miscBitmaps[Globals.Graphics.MISC.RIICHISTICK] = BitmapFactory.decodeResource(res, R.drawable.riichi_stick);
+	            miscBitmaps[Globals.Graphics.MISC.COUNTERSTICK] = BitmapFactory.decodeResource(res, R.drawable.counter);
 	            
 	            cursorX = 0;
 	            cursorY = 0;
@@ -415,6 +381,8 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 	            bDebug = false;
 	            bJapanese = false;
 	            bScoreScreen = false;
+	            bDoubleTap = true;
+	            
 	            
 	            
 
@@ -469,29 +437,37 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 		        	textBrush.setTextSize(12.0f);
 		        	canvas.drawText(Globals.VERSION, centerX/2, (centerY) + (logoHeight/2) + 12, textBrush);
 		        	
-		        	int btnWidth = miscBitmaps[Globals.Graphics.MISC.BLANK_BUTTON].getWidth();
-		        	int btnHeight = miscBitmaps[Globals.Graphics.MISC.BLANK_BUTTON].getHeight();
+		        	int btnWidth = mCanvasWidth/7;//miscBitmaps[Globals.Graphics.MISC.BLANK_BUTTON].getWidth();
+		        	int btnHeight = btnWidth/2;//miscBitmaps[Globals.Graphics.MISC.BLANK_BUTTON].getHeight();
 		        	
 		        	int X = (centerX - (btnWidth/2))-(btnWidth*2);
 		        	int Y = (int) (mCanvasHeight - (btnHeight*1.5));
 		        	
 		        	Paint btnTextBrush = new Paint();
 		        	btnTextBrush.setColor(Color.BLACK);
-		        	float textSize = scaleText("East-South,", btnWidth, btnHeight);
-		        	btnTextBrush.setTextSize(textSize);
-		        	
-		        	//canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.BLANK_BUTTON], X, Y, null);
-		        	canvas.drawText("East Only",X+2,Y+(btnHeight/2)+2,btnTextBrush);
+		        	float textSize = scaleText("East-South", btnWidth, btnHeight);
+		        	if(bJapanese)
+		        		textSize = scaleText("東風戦", btnWidth, btnHeight);
+
+		        	if(bJapanese)
+		        		drawButton(canvas, "東風戦",X,Y, btnWidth, btnHeight, textSize, false);
+		        	else
+		        		drawButton(canvas, "East Only",X,Y, btnWidth, btnHeight, textSize, false);
 		        	
 		        	X += btnWidth*2;
-		        	//canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.BLANK_BUTTON], X, Y, null);
-		        	canvas.drawText("East-South",X+2,Y+(btnHeight/2)+2,btnTextBrush);
+
+		        	if(bJapanese)
+		        		drawButton(canvas, "東南戦",X,Y, btnWidth, btnHeight, textSize, false);
+		        	else
+		        		drawButton(canvas, "East-South",X,Y, btnWidth, btnHeight, textSize, false);
 		        	
 		        	X += btnWidth*2;
-		        	//canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.BLANK_BUTTON], X, Y, null);
-		        	canvas.drawText("Stats",X+(btnWidth/4),Y+(btnHeight/2)+2,btnTextBrush);
-		        	//int btnWidth = miscBitmaps[Globals.Graphics.MISC.START_BTN].getWidth();
-		        	//canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.START_BTN], centerX - (btnWidth/2), (centerY/2)+logoHeight+25, null);
+
+		        	if(bJapanese)
+		        		drawButton(canvas, "成績",X,Y, btnWidth, btnHeight, textSize, false);
+		        	else
+		        		drawButton(canvas, "Stats",X,Y, btnWidth, btnHeight, textSize, false);
+
         		}
         		else if(bPlayerSelect){
         			/**
@@ -521,10 +497,6 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 			        	
 			        	Paint nameTextBrush = new Paint();
 			        	nameTextBrush.setColor(Color.BLUE);
-			        	//if(bJapanese)
-			        	//	bigTextBrush.setTextSize(20.0f);
-			        	//else
-			        	//	bigTextBrush.setTextSize(28.0f);
 			        
 			        	int X = 10;
 			        	int Y = 10;
@@ -585,11 +557,16 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 			        	
 			        	canvas.drawText(Globals.Characters.getName(currentlyShowing, bJapanese), X, Y, nameTextBrush);
 			        	
+			        	float textSize = 16.0f;
 			        	if(bJapanese)
-			        		otherTextBrush.setTextSize(nameTextBrush.getTextSize());
+			        		textSize = scaleText("性格:" + Globals.Characters.getBio(Globals.Characters.NODOKA, bJapanese)[3], mCanvasWidth-maxFullImageWidth-10, 999);
 			        	else
-			        		otherTextBrush.setTextSize(nameTextBrush.getTextSize()/2);
+			        		textSize = scaleText("Bio:" + Globals.Characters.getBio(Globals.Characters.SAKI, bJapanese)[3], mCanvasWidth-maxFullImageWidth-10, 999);
 			        	
+			        	if(textSize > nameTextBrush.getTextSize())
+			        		textSize = nameTextBrush.getTextSize();
+			        	otherTextBrush.setTextSize(textSize);
+			        			
 			        	otherTextBrush.getTextBounds("School: ", 0, 8, bounds);
 			        	int otherTextBrushHeight = bounds.height();
 			        	int otherTextBrushWidth = bounds.width();
@@ -609,8 +586,30 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 			        		canvas.drawText(BioText[i], X + otherTextBrushWidth, (float) (Y + nameHeight + (otherTextBrushHeight*5) + (otherTextBrushHeight*(i*1.5))), otherTextBrush);
 			        	}
 			        	
-			        	canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.OK_SQUARE_BTN], (float) ((float) mCanvasWidth - maxFullImageWidth - (miscBitmaps[Globals.Graphics.MISC.OK_SQUARE_BTN].getWidth() * 1.5)), (float) (mCanvasHeight-(miscBitmaps[Globals.Graphics.MISC.OK_SQUARE_BTN].getHeight()*1.5)), null);
+			        	int btnHeight = mCanvasHeight/10;
+			        	int btnWidth = btnHeight * 2;
+			        	float btnTextSize = -1;
+			        	if(bJapanese)
+			        		btnTextSize = scaleText("でたらめに", btnWidth, btnHeight);
+			        	else
+			        		btnTextSize = scaleText("Random", btnWidth, btnHeight);
+			        		
+			        	if(bJapanese)
+			        		drawButton(canvas, "はい", mCanvasWidth - maxFullImageWidth - (int)(btnWidth * 1.5), mCanvasHeight-(int)(btnHeight * 1.5), btnWidth, btnHeight, btnTextSize, false);
+			        	else
+			        		drawButton(canvas, "OK", mCanvasWidth - maxFullImageWidth - (int)(btnWidth * 1.5), mCanvasHeight-(int)(btnHeight * 1.5), btnWidth, btnHeight, btnTextSize, false);
+			        	//canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.OK_SQUARE_BTN], (float) ((float) mCanvasWidth - maxFullImageWidth - (miscBitmaps[Globals.Graphics.MISC.OK_SQUARE_BTN].getWidth() * 1.5)), (float) (mCanvasHeight-(miscBitmaps[Globals.Graphics.MISC.OK_SQUARE_BTN].getHeight()*1.5)), null);
+			        	if(onPlayer > 0){
+				        	if(bJapanese)
+				        		drawButton(canvas, "戻る", mCanvasWidth - maxFullImageWidth - (int)(btnWidth * 3), mCanvasHeight-(int)(btnHeight * 1.5), btnWidth, btnHeight, btnTextSize, false);
+				        	else
+				        		drawButton(canvas, "Undo", mCanvasWidth - maxFullImageWidth - (int)(btnWidth * 3), mCanvasHeight-(int)(btnHeight * 1.5), btnWidth, btnHeight, btnTextSize, false);
+			        	}
 			        	
+			        	if(bJapanese)
+			        		drawButton(canvas, "でたらめに", mCanvasWidth - maxFullImageWidth - (int)(btnWidth * 4.5), mCanvasHeight-(int)(btnHeight * 1.5), btnWidth, btnHeight, btnTextSize, false);
+			        	else
+			        		drawButton(canvas, "Random", mCanvasWidth - maxFullImageWidth - (int)(btnWidth * 4.5), mCanvasHeight-(int)(btnHeight * 1.5), btnWidth, btnHeight, btnTextSize, false);
         			}
         			catch(Exception e){
         				String WTFAmI = e.toString();
@@ -696,7 +695,13 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         				canvas.drawBitmap(scaledImage3, (float) X, (float) (Y+(textHeight*0.5)), null);
 	        			
         				//button
-        				canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.OK_BTN], centerX - (miscBitmaps[Globals.Graphics.MISC.OK_BTN].getWidth()/2), mCanvasHeight - miscBitmaps[Globals.Graphics.MISC.OK_BTN].getHeight()-1, null);
+        				int btnHeight = mCanvasHeight/10;
+			        	int btnWidth = (int) (btnHeight *2.5);
+			        	if(bJapanese)
+			        		drawButton(canvas, "はい", centerX - (btnWidth/2), mCanvasHeight - btnHeight - 1, btnWidth, btnHeight, -1, false);
+			        	else
+			        		drawButton(canvas, "OK", centerX - (btnWidth/2), mCanvasHeight - btnHeight - 1, btnWidth, btnHeight, -1, false);
+        				//canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.OK_BTN], centerX - (miscBitmaps[Globals.Graphics.MISC.OK_BTN].getWidth()/2), mCanvasHeight - miscBitmaps[Globals.Graphics.MISC.OK_BTN].getHeight()-1, null);
         			}
         			catch(Exception e){
         				String WTFAmI = e.toString();
@@ -704,6 +709,9 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         			}
         		}
         		else{
+        			int miniTileWidthOffset = miniTileWidth + miniShellLeftWidth;
+        			int miniTileHeightOffset = (miniTileHeight+(miniShellTopHeight/2));
+        			
         			if(bScoreScreen)
         				canvas.drawColor(Color.WHITE);
         			else
@@ -829,17 +837,20 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 			        		for(int i = 0; i < regDora; i++){
 			        			Tile tempTile = Dora.get(i);
 			        			if(tempTile != null)
-			        				canvas.drawBitmap(TileBMPs50PercentUser[tempTile.rawNumber], centerX+((i+1)*miniTileWidth), (centerY/4),  null);
+			        				drawTile(canvas, tempTile.rawNumber, centerX+((i+2)*(miniTileWidth+miniShellLeftWidth)), (centerY/5), Globals.Winds.EAST, true, false);
+			        				//canvas.drawBitmap(TileBMPs50PercentUser[tempTile.rawNumber], centerX+((i+1)*miniTileWidth), (centerY/4),  null);
 			        			tempTile = Dora.get(i+regDora);
 			        			if(tempTile != null)
-			        				canvas.drawBitmap(TileBMPs50PercentUser[tempTile.rawNumber], centerX+((i+1)*miniTileWidth), (centerY/4)+1+miniTileHeight,  null);
+			        				drawTile(canvas, tempTile.rawNumber, centerX+((i+2)*(miniTileWidth+miniShellLeftWidth)), (centerY/5)+1+(miniTileHeight+miniShellTopHeight+miniShellBottomHeight), Globals.Winds.EAST, true, false);
+			        				//canvas.drawBitmap(TileBMPs50PercentUser[tempTile.rawNumber], centerX+((i+1)*miniTileWidth), (centerY/4)+1+miniTileHeight,  null);
 			        		}
 			        	}
 			        	else{
 			        		for(int i = 0; i < Dora.size(); i++){
 			        			Tile tempTile = Dora.get(i);
 			        			if(tempTile != null)
-			        				canvas.drawBitmap(TileBMPs50PercentUser[tempTile.rawNumber], centerX+((i+1)*miniTileWidth), (centerY/4),  null);
+			        				drawTile(canvas, tempTile.rawNumber, centerX+((i+1)*(miniTileWidth+miniShellLeftWidth)), (centerY/5), Globals.Winds.EAST, true, false);
+			        				//canvas.drawBitmap(TileBMPs50PercentUser[tempTile.rawNumber], centerX+((i+1)*miniTileWidth), (centerY/4),  null);
 			        		}
 			        	}
 			        	
@@ -874,86 +885,98 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 			        	}
 			        	
 			        	int HandSize = pGameThread.mPlayers[winner].myHand.activeHandSize;
-			        	X = centerX - ((HandSize/2)*miniTileWidth);
+			        	X = centerX - ((HandSize/2)*(miniTileWidth+miniShellLeftWidth));
 		
 			        	for(int i = 0; i < pGameThread.mPlayers[winner].myHand.activeHandSize; i++){
-			        		int bmpIdx = pGameThread.mPlayers[winner].myHand.rawHand[pGameThread.mPlayers[winner].myHand.activeHand[i]].rawNumber;
+			        		int bmpIdx = tileToBmpIndex(pGameThread.mPlayers[winner].myHand.rawHand[pGameThread.mPlayers[winner].myHand.activeHand[i]]);//.rawNumber;
 			        		//if(!bDebug)
 			        		//	bmpIdx = 0;
-			        		canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+(i*miniTileWidth)+i, Y,  null);
+			        		drawTile(canvas, bmpIdx, X+(i*(miniTileWidth+miniShellLeftWidth))+i, Y, Globals.Winds.EAST, true, false);
+			        		//canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+(i*miniTileWidth)+i, Y,  null);
 			        	}
 			        	
 			        	int numberOfMelds = pGameThread.mPlayers[winner].myHand.numberOfMelds;
-			        	X = centerX - (((numberOfMelds*4)/2)*miniTileWidth);
+			        	X = centerX - (((numberOfMelds*4)/2)*(miniTileWidth+miniShellLeftWidth));
 			        	Y += (miniTileHeight*2);
 			        	
+			        	int heightWidthDiff = ((miniShellTopHeight+miniTileHeight+miniShellBottomHeight)-(miniTileWidth+miniShellLeftWidth+miniShellRightWidth));
 			        	if(numberOfMelds > 0){
-			        		//X = centerX - (2*miniTileWidth)-miniTileHeight-3;
-			            	//Y = mCanvasHeight - miniTileHeight;
 				        	//Globals.myAssert(startPos > 0);
-				        	for(int meldIdx = 0; meldIdx < numberOfMelds; meldIdx++){
+				        	for(int meldIdx = (numberOfMelds-1); meldIdx >= 0; meldIdx--){
+
 				        		//Closed Kan
 				        		if(pGameThread.mPlayers[winner].myHand.rawHand[pGameThread.mPlayers[winner].myHand.melds[meldIdx][1]].selfKan){
 				        			int bmpIdx = pGameThread.mPlayers[winner].myHand.rawHand[pGameThread.mPlayers[winner].myHand.melds[meldIdx][1]].rawNumber;
-		    						canvas.drawBitmap(TileBMPs50PercentUser[0], X, Y,  null);
-		    						canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileWidth, Y,  null);
-		    						canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+(2*miniTileWidth), Y,  null);
-		    						canvas.drawBitmap(TileBMPs50PercentUser[0], X+(3*miniTileWidth), Y,  null);
+				        			drawTile(canvas, 0, X, Y, Globals.Winds.EAST, true, true);
+				        			drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y, Globals.Winds.EAST, true, true);
+				        			drawTile(canvas, bmpIdx, X+(2*miniTileWidthOffset), Y, Globals.Winds.EAST, true, true);
+				        			drawTile(canvas, 0, X+(3*miniTileWidthOffset), Y, Globals.Winds.EAST, true, true);
+				        			//X -= ((miniTileWidth+miniShellLeftWidth)*4);
+				        			//continue;
 				        		}
+				        		
 				        		//Open Kan
-				        		else if(pGameThread.mPlayers[winner].myHand.melds[meldIdx][winner] == 4){
+				        		else if(pGameThread.mPlayers[winner].myHand.melds[meldIdx][0] == 4){
 				        			int playerFrom = pGameThread.mPlayers[winner].myHand.melds[meldIdx][5];
 				        			int bmpIdx = pGameThread.mPlayers[winner].myHand.rawHand[pGameThread.mPlayers[winner].myHand.melds[meldIdx][1]].rawNumber;
-				        			if(playerFrom == ((winner+3)%4)){
-				        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y+(miniTileHeight-miniTileWidth),  null);
-				        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y+(miniTileHeight-miniTileWidth)-miniTileWidth,  null);
-				        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileHeight, Y,  null);
-				        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileHeight+miniTileWidth, Y,  null);
+				        			if(playerFrom == 3){
+				        				drawTile(canvas, bmpIdx, X, Y+heightWidthDiff-miniTileWidthOffset, Globals.Winds.NORTH, true, false);
+				        				drawTile(canvas, bmpIdx, X, Y+heightWidthDiff, Globals.Winds.NORTH, true, false);
+				        				drawTile(canvas, bmpIdx, X+miniTileHeightOffset, Y, Globals.Winds.EAST, true, true);
+				        				drawTile(canvas, bmpIdx, X+miniTileHeightOffset+miniTileWidthOffset, Y, Globals.Winds.EAST, true, true);
 				        			}
-				        			if(playerFrom == ((winner+2)%4)){
-				        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X, Y,  null);
-				        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X+miniTileWidth, Y+(miniTileHeight-miniTileWidth),  null);
-				        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X+miniTileWidth, Y+(miniTileHeight-miniTileWidth)-miniTileWidth,  null);
-				        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileWidth+miniTileHeight, Y,  null);
+				        			if(playerFrom == 2){
+				        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.EAST, true, true);
+				        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y+heightWidthDiff-miniTileWidthOffset, Globals.Winds.NORTH, true, false);
+				        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y+heightWidthDiff, Globals.Winds.NORTH, true, false);
+				        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset+miniTileHeightOffset, Y, Globals.Winds.EAST, true, true);
 				        			}
-				        			if(playerFrom == ((winner+1)%4)){
-				        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X, Y,  null);
-				        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileWidth, Y,  null);
-				        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X+(2*miniTileWidth), Y+(miniTileHeight-miniTileWidth),  null);
-				        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X+(2*miniTileWidth), Y+(miniTileHeight-miniTileWidth)-miniTileWidth,  null);
+				        			if(playerFrom == 1){
+				        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.EAST, true, true);
+				        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y, Globals.Winds.EAST, true, true);
+				        				drawTile(canvas, bmpIdx, X+(2*miniTileWidthOffset), Y+heightWidthDiff-miniTileWidthOffset, Globals.Winds.NORTH, true, false);
+				        				drawTile(canvas, bmpIdx, X+(2*miniTileWidthOffset), Y+heightWidthDiff, Globals.Winds.NORTH, true, false);
 				        			}
+				        			//continue;
 				        		}
 				        		else{
 					        		//All Others
 					        		int playerFrom = pGameThread.mPlayers[winner].myHand.melds[meldIdx][5];
-				        			int bmpIdx = tileToBmpIndex(pGameThread.mPlayers[winner].myHand.rawHand[pGameThread.mPlayers[winner].myHand.melds[meldIdx][1]]);//pGameThread.mPlayers[winner].myHand.rawHand[pGameThread.mPlayers[winner].myHand.melds[meldIdx][1]].rawNumber;
+				        			int bmpIdx = tileToBmpIndex(pGameThread.mPlayers[winner].myHand.rawHand[pGameThread.mPlayers[winner].myHand.melds[meldIdx][1]]);//.rawNumber;
 				        			if(playerFrom == ((winner+3)%4)){
-				        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y+(miniTileHeight-miniTileWidth),  null);
+				        				drawTile(canvas, bmpIdx, X, Y+heightWidthDiff, Globals.Winds.NORTH, true, false);
 				        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[winner].myHand.rawHand[pGameThread.mPlayers[winner].myHand.melds[meldIdx][2]]);//.rawNumber;
-				        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileHeight, Y,  null);
+				        				drawTile(canvas, bmpIdx, X+miniTileHeightOffset, Y, Globals.Winds.EAST, true, true);
 				        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[winner].myHand.rawHand[pGameThread.mPlayers[winner].myHand.melds[meldIdx][3]]);//.rawNumber;
-				        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileHeight+miniTileWidth, Y,  null);
+				        				drawTile(canvas, bmpIdx, X+miniTileHeightOffset+miniTileWidthOffset, Y, Globals.Winds.EAST, true, true);
 				        			}
 				        			if(playerFrom == ((winner+2)%4)){
-				        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X, Y,  null);
+				        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.EAST, true, true);
 				        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[winner].myHand.rawHand[pGameThread.mPlayers[winner].myHand.melds[meldIdx][2]]);//.rawNumber;
-				        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X+miniTileWidth, Y+(miniTileHeight-miniTileWidth),  null);
+				        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y+heightWidthDiff, Globals.Winds.NORTH, true, false);
 				        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[winner].myHand.rawHand[pGameThread.mPlayers[winner].myHand.melds[meldIdx][3]]);//.rawNumber;
-				        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileWidth+miniTileHeight, Y,  null);
+				        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset+miniTileHeightOffset, Y, Globals.Winds.EAST, true, true);
 				        			}
 				        			if(playerFrom == ((winner+1)%4)){
-				        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X, Y,  null);
+				        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.EAST, true, true);
 				        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[winner].myHand.rawHand[pGameThread.mPlayers[winner].myHand.melds[meldIdx][2]]);//.rawNumber;
-				        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileWidth, Y,  null);
+				        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y, Globals.Winds.EAST, true, true);
 				        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[winner].myHand.rawHand[pGameThread.mPlayers[winner].myHand.melds[meldIdx][3]]);//.rawNumber;
-				        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X+(2*miniTileWidth), Y+(miniTileHeight-miniTileWidth),  null);
+				        				drawTile(canvas, bmpIdx, X+(2*miniTileWidthOffset), Y+heightWidthDiff, Globals.Winds.NORTH, true, false);
 				        			}
 				        		}
-			        			X += (miniTileWidth*4);
+				        		
+			        			X += ((miniTileWidth+miniShellLeftWidth)*4);
 				        	}
 			        	}
-			        	
-			        	canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.OK_BTN], centerX - (miscBitmaps[Globals.Graphics.MISC.OK_BTN].getWidth()/2), mCanvasHeight - miscBitmaps[Globals.Graphics.MISC.OK_BTN].getHeight()-1, null);
+
+			        	int btnHeight = mCanvasHeight/10;
+			        	int btnWidth = (int) (btnHeight *2.5);
+			        	if(bJapanese)
+			        		drawButton(canvas, "はい", centerX - (btnWidth/2), mCanvasHeight - btnHeight - 1, btnWidth, btnHeight, -1, false);
+			        	else
+			        		drawButton(canvas, "OK", centerX - (btnWidth/2), mCanvasHeight - btnHeight - 1, btnWidth, btnHeight, -1, false);
+			        	//canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.OK_BTN], centerX - (miscBitmaps[Globals.Graphics.MISC.OK_BTN].getWidth()/2), mCanvasHeight - miscBitmaps[Globals.Graphics.MISC.OK_BTN].getHeight()-1, null);
 			        	
 			        	return;
 	        		}
@@ -970,31 +993,41 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 		        	canvas.drawText(Globals.windToString(pGameThread.mPlayers[0].currentWind), X, Y+portraitHeight, boldTextBrush);
 		        	
 		        	//Center Info
-		        	X = centerX - (miniTileWidth*3);
-		        	Y = centerY - (miniTileWidth*3);
+		        	X = centerX - (miniTileWidth*3) - (miniShellLeftWidth*3);
+		        	Y = centerY - (miniTileWidth*3) - (miniShellLeftWidth*3);
 		        	canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.CENTER], X, Y, null);
 		        	
-		        	X = (int) (centerX - (miniTileWidth*2.5));
+		        	//X = (int) (centerX - (miniTileWidth*3) - (miniShellLeftWidth*3));
 		        	Y = centerY + (miniTileWidth);
-		        	temp = pGameThread.mTable.wallCount();
-		        	canvas.drawText(temp.toString(), X, Y, textBrush);
 		        	
-		        	X = (int) (centerX + Math.round(miniTileWidth * 1.5));
+		        	Rect bounds = new Rect();
+		        	textBrush.getTextBounds("4-4", 0, 3, bounds);
+		        	int edgeOffset = bounds.width()+1;
+		        	//X += edgeOffset;
+		        	
+		        	temp = pGameThread.mTable.wallCount();
+		        	canvas.drawText(temp.toString(), X+1, Y, textBrush);
+		        	
+		        	X = (int) (centerX + (miniTileWidth * 3) + (miniShellLeftWidth*3) - (edgeOffset) - 1);
 		        	Y = centerY + (miniTileWidth);
 		        	canvas.drawText(Globals.windToString(pGameThread.curWind), X, Y, textBrush);
 		        	
 		        	Y = (int) (Y+textBrush.getTextSize());
-		        	canvas.drawText(String.valueOf(pGameThread.curRound), X, Y, textBrush);
+		        	if(pGameThread.mTable.getBonusCount() > 0)
+		        		canvas.drawText(String.valueOf(pGameThread.curRound)+"-"+String.valueOf(pGameThread.mTable.getBonusCount()), X, Y, textBrush);
+		        	else
+		        		canvas.drawText(String.valueOf(pGameThread.curRound), X, Y, textBrush);
 		        	
-		        	X = (int) (centerX - (miniTileWidth * 2));
-		        	Y = (int) (centerY - (miniTileWidth * 1.5));
+		        	//Draw the dora at 1/2 of a tile from the top edge
+		        	X = (int) (centerX - (miniTileWidth * 2.5) - (miniShellLeftWidth*2.5));
+		        	Y = centerY - (miniTileWidth*3) - (miniShellLeftWidth*3) + (miniTileHeight/3);//(int) (centerY - (miniTileWidth * 2));
 		        	ArrayList<Tile> dora = pGameThread.mTable.getDora();
-		        	for(int i = 0; i < 4; i++){
+		        	for(int i = 0; i < 5; i++){
 		        		int bmpIdx = 0;
 		        		if(i < dora.size()){
 		        			bmpIdx = tileToBmpIndex(dora.get(i));//.rawNumber;
 		        		}
-		        		canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+(i*miniTileWidth), Y,  null);
+		        		drawTile(canvas, bmpIdx, X+(i*(miniTileWidth+miniShellLeftWidth)), Y, Globals.Winds.EAST, true, true);
 		        	}
 		        	
 		        	//Sticks, furiten, and other misc
@@ -1011,6 +1044,9 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 		        	
 		        	int lightningWidth = miscBitmaps[Globals.Graphics.MISC.LIGHTNING].getWidth();
 		        	int lightningHeight = miscBitmaps[Globals.Graphics.MISC.LIGHTNING].getHeight();
+		        	int stickWidth = miscBitmaps[Globals.Graphics.MISC.RIICHISTICK].getWidth();
+		        	int stickHeight = miscBitmaps[Globals.Graphics.MISC.RIICHISTICK].getHeight();
+		        	
 		        	for(int thisPlayer = 0; thisPlayer < 4; thisPlayer++){
 		        		for(int thisPower = 0; thisPower < Globals.Powers.COUNT; thisPower++){
 		        			if(pGameThread.mPlayers[thisPlayer].powerActivated[thisPower]){
@@ -1025,559 +1061,161 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 		        				break;
 		        			}
 		        		}
+		        		if(pGameThread.mPlayers[thisPlayer].riichi){
+		        			if(thisPlayer == 0)
+	        					canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.RIICHISTICK], mCanvasWidth - portraitWidth, ((mCanvasHeight - tileHeight)/2)-stickHeight+portraitHeight, null);
+	        				else if(thisPlayer == 1)
+	        					canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.RIICHISTICK], mCanvasWidth - portraitWidth, ((mCanvasHeight - tileHeight)/2)-stickHeight, null);
+	        				else if(thisPlayer == 2)
+	        					canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.RIICHISTICK], 0, ((mCanvasHeight - tileHeight)/2)-stickHeight, null);
+	        				else if(thisPlayer == 3)
+	        					canvas.drawBitmap(miscBitmaps[Globals.Graphics.MISC.RIICHISTICK], 0, ((mCanvasHeight - tileHeight)/2)-stickHeight+portraitHeight, null);
+		        		}
 		        	}
 		        	
-		        	//Players Hand
-		        	int HandSize = pGameThread.mPlayers[0].myHand.activeHandSize;
-		        	X = centerX - ((HandSize * tileWidth)/2);
-		        	Y = (mCanvasHeight - tileHeight) - 1;
-		        	//float startPos = (mCanvasWidth-(29*HandSize))/2;
-		        	//Globals.myAssert(startPos > 0);
-		        	//if(!pGameThread.mPlayers[0].powerActivated[Globals.Powers.invisibility]){
-			        	for(int i = 0; i < pGameThread.mPlayers[0].myHand.activeHandSize; i++){
-			        		int bmpIdx = tileToBmpIndex(pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.activeHand[i]]);//.rawNumber;
-			        		if(i == tileSelected){
-			        			if(bDiscardPosition)
-			        				canvas.drawBitmap(TileBMPsUser[bmpIdx], X+(tileWidth*i), Y - tileHeight,  null);
-			        			else
-			        				canvas.drawBitmap(TileBMPsUser[bmpIdx], X+(tileWidth*i), Y - 5,  null);
-			        		}
-			        		else
-			        			canvas.drawBitmap(TileBMPsUser[bmpIdx], X+(tileWidth*i), Y,  null);
-			        	}
-		        	//}
+		        	//Discards
+		        	drawDiscards(canvas);
+			        	
+		        	//Melds
+		        	drawMelds(canvas);
 		        	
 		        	//AI Hands
-		        	HandSize = pGameThread.mPlayers[1].myHand.activeHandSize;
-		        	X = mCanvasWidth - portraitWidth - miniTileHeight - 1;
-		        	Y = ((mCanvasHeight - tileHeight)/2)+portraitHeight -  miniTileWidth;
+			        boolean showThisHand = !(!bDebug && !showHand[1] && !pGameThread.mPlayers[0].powerActivated[Globals.Powers.pureVision]);
+		        	int HandSize = pGameThread.mPlayers[1].myHand.activeHandSize;
+		        	//X = mCanvasWidth - portraitWidth - miniTileHeight - 1;
+		        	//Y = ((mCanvasHeight - tileHeight)/2)+portraitHeight -  miniTileWidth;
+		        	//if(!showThisHand){
+		        		X = mCanvasWidth - portraitWidth - miniBlankTileHeight - 1;
+		        		Y = (((mCanvasHeight - tileHeight)/2)+portraitHeight)//Lowest point we can use
+		        			-(HandSize*(miniTileWidth+miniShellLeftWidth))-HandSize;
+		        	//}
 	
+		        	//We have to reverse the draw order on this one
 		        	if(!(pGameThread.mPlayers[1].powerActivated[Globals.Powers.invisibility] && bPowers)){
 			        	for(int i = 0; i < pGameThread.mPlayers[1].myHand.activeHandSize; i++){
-			        		int bmpIdx = tileToBmpIndex(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.activeHand[i]]);//.rawNumber;
-			        		if(!bDebug && !showHand[1] && !pGameThread.mPlayers[0].powerActivated[Globals.Powers.pureVision])
-			        			bmpIdx = 0;
-			        		canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y-(i*miniTileWidth)-i,  null);
+			        		int bmpIdx = 0;
+			        		if(showThisHand){
+			        			bmpIdx = tileToBmpIndex(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.activeHand[i]]);//.rawNumber;
+			        			drawTile(canvas, bmpIdx, X, Y+(i*(miniTileWidth+miniShellLeftWidth))+i, Globals.Winds.SOUTH, false, true);
+			        		}
+			        		else
+			        			drawTile(canvas, bmpIdx, X, Y+(i*(miniTileWidth+miniShellLeftWidth))+i, Globals.Winds.SOUTH, false, false);
 			        	}
 		        	}
 		        	
+		        	showThisHand = !(!bDebug && !showHand[2] && !pGameThread.mPlayers[0].powerActivated[Globals.Powers.pureVision]);
 		        	HandSize = pGameThread.mPlayers[2].myHand.activeHandSize;
 		        	X = centerX + ((HandSize*(miniTileWidth+1))/2);
+		        	if(!showThisHand)
+		        		X = centerX - ((HandSize*(miniTileWidth+1))/2);
 		        	Y = 1;
 		        	
 		        	if(!(pGameThread.mPlayers[2].powerActivated[Globals.Powers.invisibility] && bPowers)){
 			        	for(int i = 0; i < pGameThread.mPlayers[2].myHand.activeHandSize; i++){
-			        		int bmpIdx = tileToBmpIndex(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.activeHand[i]]);//.rawNumber;
-			        		if(!bDebug && !showHand[2] && !pGameThread.mPlayers[0].powerActivated[Globals.Powers.pureVision])
-			        			bmpIdx = 0;
-			        		canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X-(i*miniTileWidth)-i, Y, null);
+			        		int bmpIdx = 0;
+			        		if(showThisHand){
+			        			bmpIdx = tileToBmpIndex(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.activeHand[i]]);//.rawNumber;
+			        			drawTile(canvas, bmpIdx, X-(i*(miniTileWidth+miniShellLeftWidth))-i, Y, Globals.Winds.WEST, false, false);
+			        		}
+			        		else{
+			        			drawTile(canvas, bmpIdx, X+(i*(miniTileWidth+miniShellLeftWidth))+i, Y, Globals.Winds.WEST, false, false);
+			        		}
 			        	}
 		        	}
 		        	
+		        	showThisHand = !(!bDebug && !showHand[3] && !pGameThread.mPlayers[0].powerActivated[Globals.Powers.pureVision]);
 		        	HandSize = pGameThread.mPlayers[3].myHand.activeHandSize;
 		        	X = portraitWidth + 1;
 		        	Y = ((mCanvasHeight - tileHeight)/2)- portraitHeight;
 		        	
 		        	if(!(pGameThread.mPlayers[3].powerActivated[Globals.Powers.invisibility] && bPowers)){
 			        	for(int i = 0; i < pGameThread.mPlayers[3].myHand.activeHandSize; i++){
-			        		int bmpIdx = tileToBmpIndex(pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.activeHand[i]]);//.rawNumber;
-			        		if(!bDebug && !showHand[3] && !pGameThread.mPlayers[0].powerActivated[Globals.Powers.pureVision])
-			        			bmpIdx = 0;
-			        		canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx],  X, Y+(i*miniTileWidth)+i, null);
+			        		int bmpIdx = 0;
+			        		if(showThisHand){
+			        			bmpIdx = tileToBmpIndex(pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.activeHand[i]]);//.rawNumber;
+			        		}
+			        		drawTile(canvas, bmpIdx, X, Y+(i*(miniTileWidth+miniShellLeftWidth))+i, Globals.Winds.NORTH, false, false);
 			        	}
 		        	}
-		        	
-		        	//Discards
-		        	ArrayList<Tile> discards = pGameThread.mTable.getDiscards(0);
-		        	int riichiTile = pGameThread.mTable.getRiichiTile(0);
-		        	
-		        	int row = 0;
-		        	int column = 0;
-		        	boolean riichiTileUsed = false;
-		        	//if(!pGameThread.mPlayers[0].powerActivated[Globals.Powers.invisibility]){
-			        	for(int i = 0; i < discards.size(); i++){
-			        		float PosX = (centerX - ((float)(miniTileWidth*3))) + (column * miniTileWidth);
-			        		float PosY = (centerY + ((float)(miniTileWidth*3))) + (row * miniTileHeight) + row;
-			        		if(riichiTileUsed)
-			        			PosX += miniTileHeight-miniTileWidth;
-			        		
-			        		int bmpIdx = tileToBmpIndex(discards.get(i));
-			        		if(i == riichiTile){
-			        			riichiTileUsed = true;
-			        			canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx/*discards.get(i).rawNumber*/], PosX, PosY, null);
-			        		}
+
+		        	//Players Hand
+		        	HandSize = pGameThread.mPlayers[0].myHand.activeHandSize;
+		        	X = centerX - ((HandSize * (tileWidth+shellLeftWidth))/2);
+		        	Y = (mCanvasHeight - tileHeight - shellTopHeight) - 1;
+
+			        for(int i = 0; i < pGameThread.mPlayers[0].myHand.activeHandSize; i++){
+			        	int bmpIdx = tileToBmpIndex(pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.activeHand[i]]);//.rawNumber;
+			        	int thisTilesY = Y;
+			        	if(i == tileSelected){
+			        		if(bDiscardPosition)
+			        			thisTilesY = Y - tileHeight;
 			        		else
-			        			canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx/*discards.get(i).rawNumber*/], PosX, PosY, null);
-			        		
-			        		column++;
-			        		if(column == 6){
-			        			column = 0;
-			        			riichiTileUsed = false;
-			        			row++;
-			        		}
+			        			thisTilesY = Y - 5;
 			        	}
-		        	//}
-		        	
-		        	discards = pGameThread.mTable.getDiscards(1);
-		        	riichiTile = pGameThread.mTable.getRiichiTile(1);
-		        	
-		        	row = 0;
-		        	column = 0;
-		        	riichiTileUsed = false;
-		        	if(!(pGameThread.mPlayers[1].powerActivated[Globals.Powers.invisibility] && bPowers)){
-			        	for(int i = 0; i < discards.size(); i++){
-			        		boolean bEnlarge = (pGameThread.curPlayer == 1)&&(i==(discards.size()-1))&&(needButtons[PON_BTN] || needButtons[CHI_BTN] || needButtons[RON_BTN]);
-			        		float PosX = (centerX + ((float)(miniTileWidth*3))) + (row * miniTileHeight);
-			        		float PosY = (centerY + ((float)(miniTileWidth*3))) + (column * -miniTileWidth) - miniTileWidth;
-			        		if(riichiTileUsed)
-			        			PosY -= (miniTileHeight-miniTileWidth);
-			        		
-			        		int bmpIdx = tileToBmpIndex(discards.get(i));
-			        		if(i == riichiTile){
-			        			riichiTileUsed = true;
-			        			canvas.drawBitmap(TileBMPsWestRotated[bmpIdx/*discards.get(i).rawNumber*/], PosX, PosY-(miniTileHeight-miniTileWidth), null);
-			        		}
-			        		else
-			        			canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx/*discards.get(i).rawNumber*/], PosX, PosY, null);
-			        		
-			        		if(bEnlarge)
-		        				canvas.drawBitmap(TileBMPsUser[bmpIdx/*discards.get(i).rawNumber*/], centerX-(tileWidth/2), centerY, null);
-			        		
-			        		column++;
-			        		if(column == 6){
-			        			column = 0;
-			        			riichiTileUsed = false;
-			        			row++;
-			        		}
-			        	}
-		        	}
-		        	
-		        	discards = pGameThread.mTable.getDiscards(2);
-		        	riichiTile = pGameThread.mTable.getRiichiTile(2);
-		        	
-		        	row = 0;
-		        	column = 0;
-		        	riichiTileUsed = false;
-		        	if(!(pGameThread.mPlayers[2].powerActivated[Globals.Powers.invisibility] && bPowers)){
-			        	for(int i = 0; i < discards.size(); i++){
-			        		boolean bEnlarge = (pGameThread.curPlayer == 2)&&(i==(discards.size()-1))&&(needButtons[PON_BTN] || needButtons[CHI_BTN] || needButtons[RON_BTN]);
-			        		float PosX = (centerX + ((float)(miniTileWidth*3))) + (column * -miniTileWidth) - miniTileWidth;
-			        		float PosY = (centerY - ((float)(miniTileWidth*3))) + (row * -miniTileHeight) - miniTileHeight - 1;
-			        		/*float PosX = (centerX + 45.0f) + (row * 19.0f);
-			        		float PosY = (centerY + 45.0f) + (column * -15.0f) - 14.0f;*/
-			        		if(riichiTileUsed)
-			        			PosX -= (miniTileHeight-miniTileWidth);
-			        		
-			        		int bmpIdx = tileToBmpIndex(discards.get(i));
-			        		if(i == riichiTile){
-			        			riichiTileUsed = true;
-			        			canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx/*discards.get(i).rawNumber*/], PosX, PosY, null);
-			        		}
-			        		else
-			        			canvas.drawBitmap(TileBMPsWestRotated[bmpIdx/*discards.get(i).rawNumber*/], PosX, PosY, null);
-			        		
-			        		if(bEnlarge)
-		        				canvas.drawBitmap(TileBMPsUser[bmpIdx/*discards.get(i).rawNumber*/], centerX-(tileWidth/2), centerY, null);
-		        				
-			        		column++;
-			        		if(column == 6){
-			        			column = 0;
-			        			riichiTileUsed = false;
-			        			row++;
-			        		}
-			        	}
-		        	}
-		        	
-		        	discards = pGameThread.mTable.getDiscards(3);
-		        	riichiTile = pGameThread.mTable.getRiichiTile(3);
-		        	
-		        	row = 0;
-		        	column = 0;
-		        	riichiTileUsed = false;
-		        	if(!(pGameThread.mPlayers[3].powerActivated[Globals.Powers.invisibility] && bPowers)){
-			        	for(int i = 0; i < discards.size(); i++){
-			        		boolean bEnlarge = (pGameThread.curPlayer == 3)&&(i==(discards.size()-1))&&(needButtons[PON_BTN] || needButtons[CHI_BTN] || needButtons[RON_BTN]);
-			        		float PosX = (centerX - ((float)(miniTileWidth*3))) + (row * -miniTileHeight) - miniTileHeight;
-			        		float PosY = (centerY - ((float)(miniTileWidth*3))) + (column * miniTileWidth) /*- 18.0f*/;
-			        		if(riichiTileUsed)
-			        			PosY += miniTileHeight-miniTileWidth;
-			        		
-			        		int bmpIdx = tileToBmpIndex(discards.get(i));
-			        		if(i == riichiTile){
-			        			riichiTileUsed = true;
-			        			canvas.drawBitmap(TileBMPsWestRotated[bmpIdx/*discards.get(i).rawNumber*/], PosX, PosY, null);
-			        		}
-			        		else
-			        			canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx/*discards.get(i).rawNumber*/], PosX, PosY, null);
-			        		
-			        		if(bEnlarge)
-		        				canvas.drawBitmap(TileBMPsUser[bmpIdx/*discards.get(i).rawNumber*/], centerX-(tileWidth/2), centerY, null);
-		        				
-			        		column++;
-			        		if(column == 6){
-			        			column = 0;
-			        			riichiTileUsed = false;
-			        			row++;
-			        		}
-			        	}
-		        	}
 			        	
-		        	//Player Melds
-		        	int numberOfMelds = pGameThread.mPlayers[0].myHand.numberOfMelds;
-		        	if(numberOfMelds > 0){
-		        		X = mCanvasWidth - (4*miniTileWidth);
-		            	Y = mCanvasHeight - miniTileHeight;
-			        	//Globals.myAssert(startPos > 0);
-			        	for(int meldIdx = 0; meldIdx < numberOfMelds; meldIdx++){
-			        		
-			        		if(meldIdx == 1 || meldIdx == 3)
-			        			Y -= ((miniTileWidth*2) + 1);
-			        		if(meldIdx == 2){
-			        			X = mCanvasWidth - (8*miniTileWidth);
-				            	Y = mCanvasHeight - miniTileHeight;
-			        		}
-			        		
-			        		//Closed Kan
-			        		if(pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][1]].selfKan){
-			        			int bmpIdx = pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][1]].rawNumber;
-	    						canvas.drawBitmap(TileBMPs50PercentUser[0], X, Y,  null);
-	    						canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileWidth, Y,  null);
-	    						canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+(2*miniTileWidth), Y,  null);
-	    						canvas.drawBitmap(TileBMPs50PercentUser[0], X+(3*miniTileWidth), Y,  null);
-			        			continue;
-			        		}
-			        		
-			        		//Open Kan
-			        		if(pGameThread.mPlayers[0].myHand.melds[meldIdx][0] == 4){
-			        			int playerFrom = pGameThread.mPlayers[0].myHand.melds[meldIdx][5];
-			        			int bmpIdx = pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][1]].rawNumber;
-			        			if(playerFrom == 3){
-			        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y+(miniTileHeight-miniTileWidth),  null);
-			        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y+(miniTileHeight-miniTileWidth)-miniTileWidth,  null);
-			        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileHeight, Y,  null);
-			        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileHeight+miniTileWidth, Y,  null);
-			        			}
-			        			if(playerFrom == 2){
-			        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X, Y,  null);
-			        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X+miniTileWidth, Y+(miniTileHeight-miniTileWidth),  null);
-			        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X+miniTileWidth, Y+(miniTileHeight-miniTileWidth)-miniTileWidth,  null);
-			        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileWidth+miniTileHeight, Y,  null);
-			        			}
-			        			if(playerFrom == 1){
-			        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X, Y,  null);
-			        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileWidth, Y,  null);
-			        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X+(2*miniTileWidth), Y+(miniTileHeight-miniTileWidth),  null);
-			        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X+(2*miniTileWidth), Y+(miniTileHeight-miniTileWidth)-miniTileWidth,  null);
-			        			}
-			        			continue;
-			        		}
-			        		
-			        		//All Others
-			        		int playerFrom = pGameThread.mPlayers[0].myHand.melds[meldIdx][5];
-		        			int bmpIdx = tileToBmpIndex(pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][1]]);//.rawNumber;
-		        			if(playerFrom == 3){
-		        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y+(miniTileHeight-miniTileWidth),  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][2]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileHeight, Y,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][3]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileHeight+miniTileWidth, Y,  null);
-		        			}
-		        			if(playerFrom == 2){
-		        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X, Y,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][2]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X+miniTileWidth, Y+(miniTileHeight-miniTileWidth),  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][3]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileWidth+miniTileHeight, Y,  null);
-		        			}
-		        			if(playerFrom == 1){
-		        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X, Y,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][2]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniTileWidth, Y,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][3]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X+(2*miniTileWidth), Y+(miniTileHeight-miniTileWidth),  null);
-		        			}
+			        	if((i == tileSelected) && bDragToDiscard){
+			        		//int tempX = cursorX-((tileWidth+shellLeftWidth)/2);
+			        		//int tempY = (int)(cursorY-(tileHeight/2));
+			        		drawTile(canvas, bmpIdx, cursorX-((tileWidth+shellLeftWidth)/2), cursorY-(tileHeight/2), Globals.Winds.EAST, false, false);
 			        	}
-		        	}
-		        	
-		        	//AI Melds
-		        	numberOfMelds = pGameThread.mPlayers[1].myHand.numberOfMelds;
-		        	if(numberOfMelds > 0){
-			        	//Globals.myAssert(startPos > 0);
-			        	for(int meldIdx = 0; meldIdx < numberOfMelds; meldIdx++){
-			        		X = mCanvasWidth - portraitWidth - miniTileHeight;
-			            	Y = ((mCanvasHeight - tileHeight)/2)-portraitHeight+(4*miniTileWidth)/*offset*/-(miniTileWidth*2);
-			            	
-			        		if(meldIdx == 1)
-			        			X -= ((miniTileWidth*2) + 1);
-			        		if(meldIdx == 2){
-				            	Y += (4*miniTileWidth);
-			        		}
-			        		if(meldIdx == 3){
-			        			X -= ((miniTileWidth*2) + 1);
-					            Y += (4*miniTileWidth);
-			        		}
-			        		
-			        		//Closed Kan
-			        		if(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][1]].selfKan){
-			        			int bmpIdx = pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][1]].rawNumber;
-	    						canvas.drawBitmap(TileBMPsSouthRotated[0], X, Y,  null);
-	    						canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y-miniTileWidth,  null);
-	    						canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y-(miniTileWidth*2),  null);
-	    						canvas.drawBitmap(TileBMPsSouthRotated[0], X, Y-(miniTileWidth*3),  null);
-			        			continue;
-			        		}
-			        		
-			        		//Open Kan
-			        		if(pGameThread.mPlayers[1].myHand.melds[meldIdx][0] == 4){
-			        			int playerFrom = pGameThread.mPlayers[1].myHand.melds[meldIdx][5];
-			        			int bmpIdx = pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][1]].rawNumber;
-			        			if(playerFrom == 2){
-			        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+(miniTileHeight-miniTileWidth), Y,  null);
-			        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+(miniTileHeight-miniTileWidth)-miniTileWidth, Y,  null);
-			        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y-miniTileHeight,  null);
-			        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y-miniTileHeight-miniTileWidth,  null);
-			        			}
-			        			if(playerFrom == 3){
-			        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y,  null);
-			        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+(miniTileHeight-miniTileWidth), Y-miniTileHeight,  null);
-			        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+(miniTileHeight-miniTileWidth)-miniTileWidth, Y-miniTileHeight,  null);
-			        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y-miniTileHeight-miniTileWidth,  null);
-			        			}
-			        			if(playerFrom == 0){
-			        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y,  null);
-			        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y-miniTileWidth,  null);
-			        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+(miniTileHeight-miniTileWidth), Y-(2*miniTileWidth),  null);
-			        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+(miniTileHeight-miniTileWidth)-miniTileWidth, Y-(2*miniTileWidth),  null);
-			        			}
-			        			continue;
-			        		}
-			        		
-			        		//All Others
-			        		int playerFrom = pGameThread.mPlayers[1].myHand.melds[meldIdx][5];
-		        			int bmpIdx = tileToBmpIndex(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][1]]);//.rawNumber;
-		        			if(playerFrom == 0){
-		        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+(miniTileHeight-miniTileWidth), Y,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][2]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y-miniTileWidth,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][3]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y/*-miniTileHeight*/-(2*miniTileWidth),  null);
-		        			}
-		        			if(playerFrom == 2){
-		        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][2]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+(miniTileHeight-miniTileWidth), Y-miniTileHeight,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][3]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y-miniTileHeight-miniTileWidth,  null);
-		        			}
-		        			if(playerFrom == 3){
-		        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][2]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y-miniTileWidth,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][3]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+(miniTileHeight-miniTileWidth), Y-(miniTileWidth*2)-(miniTileHeight-miniTileWidth),  null);
-		        			}
-			        	}
-		        	}
-		        	
-		        	numberOfMelds = pGameThread.mPlayers[2].myHand.numberOfMelds;
-		        	if(numberOfMelds > 0){
-			        	//Globals.myAssert(startPos > 0);
-			        	for(int meldIdx = 0; meldIdx < numberOfMelds; meldIdx++){
-			        		X = 1;
-			            	Y = 1;
-			            	
-			        		if(meldIdx == 1)
-			        			X += (4*miniTileWidth);
-			        			//Y += ((miniTileWidth*2) + 1);
-			        		if(meldIdx == 2){
-				            	X += ((4*miniTileWidth)*2);
-			        		}
-			        		if(meldIdx == 3){
-			        			//Y += ((miniTileWidth*2) + 1);
-					            X += ((4*miniTileWidth)*3);
-			        		}
-			        		
-			        		//Closed Kan
-			        		if(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][1]].selfKan){
-			        			int bmpIdx = pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][1]].rawNumber;
-	    						canvas.drawBitmap(TileBMPsWestRotated[0], X, Y,  null);
-	    						canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+miniTileWidth, Y,  null);
-	    						canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+(miniTileWidth*2), Y,  null);
-	    						canvas.drawBitmap(TileBMPsWestRotated[0], X+(miniTileWidth*3), Y,  null);
-			        			continue;
-			        		}
-			        		
-			        		//Open Kan
-			        		if(pGameThread.mPlayers[2].myHand.melds[meldIdx][0] == 4){
-			        			int playerFrom = pGameThread.mPlayers[2].myHand.melds[meldIdx][5];
-			        			int bmpIdx = pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][1]].rawNumber;
-			        			if(playerFrom == 3){
-			        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X, Y,  null);
-			        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X, Y+miniTileWidth,  null);
-			        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+miniTileHeight, Y,  null);
-			        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+miniTileHeight+miniTileWidth, Y,  null);
-			        			}
-			        			if(playerFrom == 0){
-			        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X, Y,  null);
-			        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X+miniTileWidth, Y,  null);
-			        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X+miniTileWidth, Y+miniTileWidth,  null);
-			        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+miniTileHeight+miniTileWidth, Y,  null);
-			        			}
-			        			if(playerFrom == 1){
-			        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X, Y,  null);
-			        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+miniTileWidth, Y,  null);
-			        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X+(2*miniTileWidth), Y,  null);
-			        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X+(2*miniTileWidth), Y+miniTileWidth,  null);
-			        			}
-			        			continue;
-			        		}
-			        		
-			        		//All Others
-			        		int playerFrom = pGameThread.mPlayers[2].myHand.melds[meldIdx][5];
-		        			int bmpIdx = tileToBmpIndex(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][1]]);//.rawNumber;
-		        			if(playerFrom == 3){
-		        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X, Y,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][2]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+miniTileHeight, Y,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][3]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+miniTileHeight+miniTileWidth, Y,  null);
-		        			}
-		        			if(playerFrom == 0){
-		        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X, Y,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][2]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X+miniTileWidth, Y,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][3]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+miniTileHeight+miniTileWidth, Y,  null);
-		        			}
-		        			if(playerFrom == 1){
-		        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X, Y,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][2]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+miniTileWidth, Y,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][3]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X+(2*miniTileWidth), Y,  null);
-		        			}
-			        	}
-		        	}
-		        	
-		        	numberOfMelds = pGameThread.mPlayers[3].myHand.numberOfMelds;
-		        	if(numberOfMelds > 0){
-			        	//Globals.myAssert(startPos > 0);
-			        	for(int meldIdx = 0; meldIdx < numberOfMelds; meldIdx++){
-			        		X = portraitWidth;
-			            	Y = ((mCanvasHeight - tileHeight)/2)+portraitHeight-(4*miniTileWidth)+/*Offset*/(miniTileWidth*2);
-			            	
-			        		if(meldIdx == 1)
-			        			X += ((miniTileWidth*2) + 1);
-			        		if(meldIdx == 2){
-				            	Y -= (4*miniTileWidth);
-			        		}
-			        		if(meldIdx == 3){
-			        			X += ((miniTileWidth*2) + 1);
-					            Y -= (4*miniTileWidth);
-			        		}
-			        		
-			        		//Closed Kan
-			        		if(pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.melds[meldIdx][1]].selfKan){
-			        			int bmpIdx = pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.melds[meldIdx][1]].rawNumber;
-	    						canvas.drawBitmap(TileBMPsNorthRotated[0], X, Y,  null);
-	    						canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X, Y+miniTileWidth,  null);
-	    						canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X, Y+(miniTileWidth*2),  null);
-	    						canvas.drawBitmap(TileBMPsNorthRotated[0], X, Y+(miniTileWidth*3),  null);
-			        			continue;
-			        		}
-			        		
-			        		//Open Kan
-			        		if(pGameThread.mPlayers[3].myHand.melds[meldIdx][0] == 4){
-			        			int playerFrom = pGameThread.mPlayers[3].myHand.melds[meldIdx][5];
-			        			int bmpIdx = pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.melds[meldIdx][1]].rawNumber;
-			        			if(playerFrom == 2){
-			        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X, Y,  null);
-			        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+miniTileWidth, Y,  null);
-			        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X, Y+miniTileHeight,  null);
-			        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X, Y+miniTileHeight+miniTileWidth,  null);
-			        			}
-			        			if(playerFrom == 1){
-			        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X, Y,  null);
-			        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X, Y+miniTileWidth,  null);
-			        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+miniTileWidth, Y+miniTileWidth,  null);
-			        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X, Y+miniTileHeight+miniTileWidth,  null);
-			        			}
-			        			if(playerFrom == 0){
-			        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X, Y,  null);
-			        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X, Y+miniTileWidth,  null);
-			        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X, Y+(2*miniTileWidth),  null);
-			        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+miniTileWidth, Y+(2*miniTileWidth),  null);
-			        			}
-			        			continue;
-			        		}
-			        		
-			        		//All Others
-			        		int playerFrom = pGameThread.mPlayers[3].myHand.melds[meldIdx][5];
-		        			int bmpIdx = tileToBmpIndex(pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.melds[meldIdx][1]]);//.rawNumber;
-		        			if(playerFrom == 2){
-		        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X, Y,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.melds[meldIdx][2]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X, Y+miniTileHeight,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.melds[meldIdx][3]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X, Y+miniTileHeight+miniTileWidth,  null);
-		        			}
-		        			if(playerFrom == 1){
-		        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X, Y,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.melds[meldIdx][2]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X, Y+miniTileWidth,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.melds[meldIdx][3]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X, Y+miniTileHeight+miniTileWidth,  null);
-		        			}
-		        			if(playerFrom == 0){
-		        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X, Y,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.melds[meldIdx][2]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X, Y+miniTileWidth,  null);
-		        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.melds[meldIdx][3]]);//.rawNumber;
-		        				canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X, Y+(2*miniTileWidth),  null);
-		        			}
-			        	}
-		        	}
+			        	else
+			        		drawTile(canvas, bmpIdx, X+((tileWidth+shellLeftWidth)*i), thisTilesY, Globals.Winds.EAST, false, false);
+			        }
 		        	
 		        	//Buttons
-		        	int buttonWidth = Buttons[PON_BTN].getWidth();
-		        	int buttonHeight = Buttons[PON_BTN].getHeight();
+			        int buttonWidth = (int) ((tileWidth + shellLeftWidth + shellRightWidth)*1.5);
+		        	int buttonHeight = buttonWidth/2;
 		        	X = centerX - (buttonWidth/2);
 		        	Y = mCanvasHeight - tileHeight - 1 - buttonHeight;
 		        	
+		        	//Size check, make sure we can fit on the screen
+		        	if((X - (buttonWidth*4.5)) < 0){
+		        		Globals.myAssert(false);
+		        		buttonWidth = (int) ((mCanvasWidth/2)/4.5);
+		            	buttonHeight = buttonWidth/2;
+		            	X = centerX - (buttonWidth/2);
+		        	}
+		        	
+		        	float cmdTextHeight = -1;
+		        	if(bJapanese)
+		        		cmdTextHeight = scaleText(Globals.cmdToString(Globals.CMD.RIICHI, bJapanese), buttonWidth, buttonHeight);
+		        	else
+		        		cmdTextHeight = scaleText(Globals.cmdToString(Globals.CMD.TSUMO, bJapanese), buttonWidth, buttonHeight);
+		        	
 		        	if(needButtons[PASS_BTN]){
-		        		canvas.drawBitmap(Buttons[PASS_BTN], X, Y, null);
+		        		drawButton(canvas, Globals.cmdToString(Globals.CMD.PASS, bJapanese), X, Y, buttonWidth, buttonHeight, cmdTextHeight, true);
 		        	}
 		        	if(needButtons[PON_BTN]){
-		        		canvas.drawBitmap(Buttons[PON_BTN], X + buttonWidth + 1, Y, null);
+		        		drawButton(canvas, Globals.cmdToString(Globals.CMD.PON, bJapanese), X-(buttonWidth*3), Y, buttonWidth, buttonHeight, cmdTextHeight, true);
 		        	}
 		        	if(needButtons[CHI_BTN]){
-		        		canvas.drawBitmap(Buttons[CHI_BTN], X + (buttonWidth*2) + 2, Y, null);
+		        		drawButton(canvas, Globals.cmdToString(Globals.CMD.CHI, bJapanese), (int) (X-(buttonWidth*1.5)), Y, buttonWidth, buttonHeight, cmdTextHeight, true);
 		        	}
 		        	if(needButtons[KAN_BTN]){
-		        		canvas.drawBitmap(Buttons[KAN_BTN], X + (buttonWidth*3) + 3, Y, null);
+		        		drawButton(canvas, Globals.cmdToString(Globals.CMD.KAN, bJapanese), (int) (X-(buttonWidth*4.5)), Y, buttonWidth, buttonHeight, cmdTextHeight, true);
 		        	}
 		        	if(needButtons[SELFKAN_BTN]){
-		        		canvas.drawBitmap(Buttons[SELFKAN_BTN], X + (buttonWidth*3) + 3, Y, null);
+		        		drawButton(canvas, Globals.cmdToString(Globals.CMD.KAN, bJapanese), (int) (X-(buttonWidth*4.5)), Y, buttonWidth, buttonHeight, cmdTextHeight, true);
 		        	}
 		        	if(needButtons[RIICHI_BTN]){
-		        		canvas.drawBitmap(Buttons[RIICHI_BTN], X - buttonWidth - 1, Y, null);
+		        		drawButton(canvas, Globals.cmdToString(Globals.CMD.RIICHI, bJapanese), (int) (X+(buttonWidth*1.5)), Y, buttonWidth, buttonHeight, cmdTextHeight, true);
 		        	}
 		        	if(needButtons[RON_BTN]){
-		        		canvas.drawBitmap(Buttons[RON_BTN],X - (buttonWidth*2) - 2, Y, null);
+		        		drawButton(canvas, Globals.cmdToString(Globals.CMD.RON, bJapanese), X+(buttonWidth*3), Y, buttonWidth, buttonHeight, cmdTextHeight, true);
 		        	}
 		        	if(needButtons[TSUMO_BTN]){
-		        		canvas.drawBitmap(Buttons[TSUMO_BTN], X - (buttonWidth*3) - 3, Y, null);
+		        		drawButton(canvas, Globals.cmdToString(Globals.CMD.TSUMO, bJapanese), (int) (X+(buttonWidth*4.5)), Y, buttonWidth, buttonHeight, cmdTextHeight, true);
 		        	}
 		        	
 		        	
 		        	if(bNeedChiList){
-		        		int setSize = (2*tileWidth)+3;
+		        		int setSize = (2*(tileWidth+shellLeftWidth))+3;
 		        		Paint blackBrush = new Paint();
 		        		blackBrush.setColor(Color.BLACK);
 		        		Paint whiteBrush = new Paint();
 		        		whiteBrush.setColor(Color.WHITE);
-		        		canvas.drawRect(centerX - 17 -  (int)(setSize * 1.5), centerY - tileHeight, centerX + 17 + (int)(setSize * 1.5), centerY + tileHeight, blackBrush);
-		        		canvas.drawRect(centerX - 15 - (int)(setSize * 1.5), centerY - tileHeight + 2, centerX + 15 + (int)(setSize * 1.5), centerY + tileHeight - 2, whiteBrush);
+		        		canvas.drawRect(centerX - tileWidth -  (int)(setSize * 1.5), centerY - (tileHeight+shellTopHeight+shellBottomHeight), centerX + tileWidth + (int)(setSize * 1.5), centerY + (tileHeight+shellTopHeight+shellBottomHeight), blackBrush);
+		        		canvas.drawRect(centerX - (tileWidth-2) - (int)(setSize * 1.5), centerY - (tileHeight+shellTopHeight+shellBottomHeight) + 2, centerX + (tileWidth-2) + (int)(setSize * 1.5), centerY + (tileHeight+shellTopHeight+shellBottomHeight) - 2, whiteBrush);
 		        		Globals.myAssert(chiList.size() >= 2 && chiList.size() <= 3);
 		        		//canvas.drawBitmap(Buttons[PASS_BTN], centerX - 10, centerY + 10, null);
 		        		float startX = 0;
@@ -1589,9 +1227,11 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 		        		}
 		        		for(int i = 0; i < chiList.size(); i++){
 		        			int bmpIdx = tileToBmpIndex(pGameThread.mPlayers[0].myHand.rawHand[chiList.get(i).tiles[0]]);//.rawNumber;
-		        			canvas.drawBitmap(TileBMPsUser[bmpIdx], startX, centerY - (tileHeight/2),  null);
+		        			drawTile(canvas, bmpIdx, (int) startX, centerY - ((tileHeight+shellTopHeight+shellBottomHeight)/2), Globals.Winds.EAST, false, false);
+		        			//canvas.drawBitmap(TileBMPsUser[bmpIdx], startX, centerY - ((tileHeight+shellTopHeight+shellBottomHeight)/2),  null);
 		        			bmpIdx = tileToBmpIndex(pGameThread.mPlayers[0].myHand.rawHand[chiList.get(i).tiles[1]]);//.rawNumber;
-		        			canvas.drawBitmap(TileBMPsUser[bmpIdx], startX+tileWidth, centerY - (tileHeight/2),  null);
+		        			drawTile(canvas, bmpIdx, (int) startX+tileWidth+shellLeftWidth, centerY - ((tileHeight+shellTopHeight+shellBottomHeight)/2), Globals.Winds.EAST, false, false);
+		        			//canvas.drawBitmap(TileBMPsUser[bmpIdx], startX+tileWidth, centerY - (tileHeight/2),  null);
 		        			//canvas.drawBitmap(TileBMPsUser[chiList.get(i).tiles[2]], startX+(29*2), centerY - 27,  null);
 		        			startX += setSize + 10;
 		        		}
@@ -1647,34 +1287,42 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
          * To do: cleanup/consolidate these
          */
         public int handleButtonPress(float x, float y){
-        	int buttonWidth = Buttons[PON_BTN].getWidth();
-        	int buttonHeight = Buttons[PON_BTN].getHeight();
+        	//int buttonWidth = Buttons[PON_BTN].getWidth();
+        	//int buttonHeight = Buttons[PON_BTN].getHeight();
+        	int buttonWidth = (int) ((tileWidth + shellLeftWidth + shellRightWidth)*1.5);
+        	int buttonHeight = buttonWidth/2;
         	int buttonX = centerX - (buttonWidth/2);
         	int buttonY = mCanvasHeight - tileHeight - 1 - buttonHeight;
         	
+        	//Size check, make sure we can fit on the screen
+        	if((buttonX - (buttonWidth*4.5)) < 0){
+        		buttonWidth = (int) ((mCanvasWidth/2)/4.5);
+            	buttonHeight = buttonWidth/2;
+        	}
+        	
         	if((y > buttonY)&&(y < (buttonY + buttonHeight))){
-        		if((x > (buttonX - buttonWidth - 1))&&(x < (buttonX - 1))&&needButtons[RIICHI_BTN]){
+        		if((x > (buttonX + (buttonWidth*1.5)))&&(x < (buttonX + (buttonWidth*2.5)))&&needButtons[RIICHI_BTN]){
         			return Globals.CMD.RIICHI;
         		}
-        		if((x > (buttonX - (buttonWidth*2) - 2))&&(x < (buttonX - 2 - (buttonWidth)))&&needButtons[RON_BTN]){
+        		if((x > (buttonX + (buttonWidth*3)))&&(x < (buttonX + (buttonWidth*4)))&&needButtons[RON_BTN]){
         			return Globals.CMD.RON;
         		}
-        		if((x > (buttonX + 1 + buttonWidth))&&(x < (buttonX + 1 + (buttonWidth*2)))&&needButtons[PON_BTN]){
+        		if((x > (buttonX - (buttonWidth*3)))&&(x < (buttonX - (buttonWidth*2)))&&needButtons[PON_BTN]){
         			return Globals.CMD.PON;
         		}
-        		if((x > (buttonX + 2 + (buttonWidth*2)))&&(x < (buttonX + 2 + (buttonWidth*3)))&&needButtons[CHI_BTN]){
+        		if((x > (buttonX - (buttonWidth*1.5)))&&(x < (buttonX - (buttonWidth*0.5)))&&needButtons[CHI_BTN]){
         			return Globals.CMD.CHI;
         		}
-        		if((x > (buttonX + 3 + (buttonWidth*3)))&&(x < (buttonX + 3 + (buttonWidth*4)))&&needButtons[KAN_BTN]){
+        		if((x > (buttonX - (buttonWidth*4.5)))&&(x < (buttonX - (buttonWidth*3.5)))&&needButtons[KAN_BTN]){
         			return Globals.CMD.KAN;
         		}
         		if((x > buttonX)&&(x < (buttonX + buttonWidth))&&needButtons[PASS_BTN]){
         			return Globals.CMD.PASS;
         		}
-        		if((x > (buttonX - (buttonWidth*3) - 3))&&(x < (buttonX - 3 - (buttonWidth*2)))&&needButtons[TSUMO_BTN]){
+        		if((x > (buttonX + (buttonWidth*4.5)))&&(x < (buttonX + (buttonWidth*5.5)))&&needButtons[TSUMO_BTN]){
         			return Globals.CMD.TSUMO;
         		}
-        		if((x > (buttonX + 3 + (buttonWidth*3)))&&(x < (buttonX + 3 + (buttonWidth*4)))&&needButtons[SELFKAN_BTN]){
+        		if((x > (buttonX - (buttonWidth*4.5)))&&(x < (buttonX - (buttonWidth*3.5)))&&needButtons[SELFKAN_BTN]){
         			return Globals.CMD.SELFKAN;
         		}
         	}
@@ -1682,9 +1330,9 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         }
         
         public int handleChiListTouch(float x, float y){
-        	int setSize = (2*tileWidth)+3;
+        	int setSize = (2*(tileWidth+shellLeftWidth))+3;
     		//canvas.drawBitmap(Buttons[PASS_BTN], centerX - 10, centerY + 10, null);
-        	if(y < (centerY-(tileHeight/2)) || y > (centerY+(tileHeight/2)))
+        	if(y < (centerY-((tileHeight+shellTopHeight+shellBottomHeight)/2)) || y > (centerY+((tileHeight+shellTopHeight+shellBottomHeight)/2)))
         		return -1;
         	
     		float startX = 0;
@@ -1709,33 +1357,12 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         
         public boolean handleTouch(float x, float y){
         	if(bTitleScreen){
-    			/*int logoHeight = miscBitmaps[Globals.Graphics.MISC.LOGO].getHeight();
-	        	int btnWidth = miscBitmaps[Globals.Graphics.MISC.START_BTN].getWidth();
-	        	int btnHeight = miscBitmaps[Globals.Graphics.MISC.START_BTN].getHeight();
-        		if((x > (centerX - (btnWidth/2))) && (x < (centerX - (btnWidth/2) + btnWidth))){
-        			if((y > ((centerY/2)+logoHeight+25)) && (y < ((centerY/2)+logoHeight+25+btnHeight))){
-        				bTitleScreen = false;
-        				bPlayerSelect = true;
-        				currentlyShowing = 0;
-        				onPlayer = 0;
-        				return true;
-        			}
-        				
-        		}*/
 	        	return false;
         	}
         	else if(bPlayerSelect){
         		return false;
         	}
         	else if(bScoreScreen){
-        		/*if((x > (centerX - (miscBitmaps[Globals.Graphics.MISC.OK_BTN].getWidth()/2))) && (x < (centerX + miscBitmaps[Globals.Graphics.MISC.OK_BTN].getWidth()))){
-        			if(y > (mCanvasHeight - miscBitmaps[Globals.Graphics.MISC.OK_BTN].getHeight()-1)){
-        				bScoreScreen = false;
-        				pGameThread.resumeThread();
-        				return true;
-        			}
-        				
-        		}*/
         		return false;
         	}
         	else{
@@ -1753,28 +1380,15 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         	}
         	return false;
         }
-        
-        public int handleFling(float x, float y, float velocityX, float velocityY){
-        	//int tileIdx = coordinatesToTile(x, y);
-        	//if(tileIdx == -1)
-        	//	return -1;
-        	if(tileSelected == -1)
-        		return -1;
-        	if((velocityX < 25.0)&&(velocityX > -25.0)&&(velocityY < -30)){
-        		tileSelected = -1;
-        		return tileSelected;
-        	}
-        	return -1;
-        }
-        
+
         /**
          * In most cases we will just defer to handleTouch
          */
         public boolean handleSingleTap(float x, float y){
         	if(bTitleScreen){
     			//handleTouch(x, y);
-        		int btnWidth = miscBitmaps[Globals.Graphics.MISC.BLANK_BUTTON].getWidth();
-	        	int btnHeight = miscBitmaps[Globals.Graphics.MISC.BLANK_BUTTON].getHeight();
+        		int btnWidth = mCanvasWidth/7;//miscBitmaps[Globals.Graphics.MISC.BLANK_BUTTON].getWidth();
+	        	int btnHeight = btnWidth/2;//miscBitmaps[Globals.Graphics.MISC.BLANK_BUTTON].getHeight();
         		int btnX = (centerX - (btnWidth/2))-(btnWidth*2);
 	        	int btnY = (int) (mCanvasHeight - (btnHeight*1.5));
 	        	
@@ -1815,13 +1429,15 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 	        	}
         	}
         	else if(bPlayerSelect){
-        		int squareBtnWidth = miscBitmaps[Globals.Graphics.MISC.OK_SQUARE_BTN].getWidth();
-    			int squareBtnHeight = miscBitmaps[Globals.Graphics.MISC.OK_SQUARE_BTN].getHeight();
+        		int btnHeight = mCanvasHeight/10;
+	        	int btnWidth = btnHeight * 2;
+        		//int squareBtnWidth = mCanvasHeight/6;//miscBitmaps[Globals.Graphics.MISC.OK_SQUARE_BTN].getWidth();
+    			//int squareBtnHeight = mCanvasHeight/6;//miscBitmaps[Globals.Graphics.MISC.OK_SQUARE_BTN].getHeight();
     			int maxFullImageWidth = characterPortraits[Globals.Characters.TOUKA][Globals.Characters.Graphics.FULL].getWidth();
     			
-    			if((y >= (mCanvasHeight-(squareBtnHeight*1.5))) && (y <= (mCanvasHeight-(squareBtnHeight*0.5)))){
+    			if((y >= (mCanvasHeight-(btnHeight*1.5))) && (y <= (mCanvasHeight-(btnHeight*0.5)))){
     				//OK button
-    				if((x <= mCanvasWidth - maxFullImageWidth - (squareBtnWidth*0.5))&& (x >= mCanvasWidth - maxFullImageWidth - (squareBtnWidth*1.5))){
+    				if((x <= mCanvasWidth - maxFullImageWidth - (btnWidth*0.5))&& (x >= mCanvasWidth - maxFullImageWidth - (btnWidth*1.5))){
     					if(pGameThread.setCharacter(onPlayer, currentlyShowing))
     						onPlayer++;
     					if(onPlayer > 3){
@@ -1831,6 +1447,23 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
     						bPlayerSelect = false;
     						pGameThread.charSelectDone();
     					}
+    					return true;
+    				}
+    				
+    				//Undo button
+    				if((x <= mCanvasWidth - maxFullImageWidth - (btnWidth*2))&& (x >= mCanvasWidth - maxFullImageWidth - (btnWidth*3))){
+    					if(onPlayer > 0){
+    						onPlayer--;
+    					}
+    					return true;
+    				}
+    				
+    				//Random Button
+    				if((x <= mCanvasWidth - maxFullImageWidth - (btnWidth*3.5))&& (x >= mCanvasWidth - maxFullImageWidth - (btnWidth*4.5))){
+    					Random randGenerator = new Random();
+    					int randNum = randGenerator.nextInt(20);
+    					if(randNum >= 0 && randNum <= 19)
+    						currentlyShowing = randNum;
     					return true;
     				}
     			}
@@ -1920,9 +1553,11 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
     			}
         	}
         	else if(bScoreScreen){
+        		int btnHeight = mCanvasHeight/10;
+	        	int btnWidth = (int) (btnHeight *2.5);
         		//return handleTouch(x, y);
-        		if((x > (centerX - (miscBitmaps[Globals.Graphics.MISC.OK_BTN].getWidth()/2))) && (x < (centerX + miscBitmaps[Globals.Graphics.MISC.OK_BTN].getWidth()))){
-        			if(y > (mCanvasHeight - miscBitmaps[Globals.Graphics.MISC.OK_BTN].getHeight()-1)){
+        		if((x > (centerX - (btnWidth/2))) && (x < (centerX + btnWidth))){
+        			if(y > (mCanvasHeight - btnHeight-1)){
         				bScoreScreen = false;
         				pGameThread.resumeThread();
         				return true;
@@ -1932,8 +1567,10 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         		return false;
         	}
         	else if(bResultScreen){
-        		if((x > (centerX - (miscBitmaps[Globals.Graphics.MISC.OK_BTN].getWidth()/2))) && (x < (centerX + miscBitmaps[Globals.Graphics.MISC.OK_BTN].getWidth()))){
-        			if(y > (mCanvasHeight - miscBitmaps[Globals.Graphics.MISC.OK_BTN].getHeight()-1)){
+        		int btnHeight = mCanvasHeight/10;
+	        	int btnWidth = (int) (btnHeight *2.5);
+        		if((x > (centerX - (btnWidth/2))) && (x < (centerX + btnWidth))){
+        			if(y > (mCanvasHeight - btnHeight-1)){
         				bResultScreen = false;
         				bTitleScreen = true;
         				return true;
@@ -1968,6 +1605,14 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         			}
         		}
         	}
+        	if(bDragToDiscard){
+        		//Just update the cursor position
+        		if(tileSelected >= 0){
+        			cursorX = Math.round(curX);
+        			cursorY = Math.round(curY);
+        			somethingChanged = true;
+        		}
+        	}
         	
         	if(somethingChanged)
         		return true;
@@ -1985,6 +1630,14 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         				return ret;
         			}
         		}
+        		
+        		if(bDragToDiscard){
+        			
+        			Rect discardArea = new Rect(centerX - (miniTileWidth*3) - (miniShellLeftWidth*3),centerY - (miniTileWidth*3) - (miniShellLeftWidth*3),centerX + (miniTileWidth*3) + (miniShellLeftWidth*3),centerY + (miniTileWidth*3) + (miniShellLeftWidth*3) + (miniTileHeight*3));
+        			if(discardArea.contains((int)x, (int)y)){
+        				return ret;
+        			}
+        		}
         	}
         	return -1;
         }
@@ -1992,16 +1645,760 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         public int handleDiscard(float x, float y){
         	return coordinatesToTile(x, y);
         }
+        
+        public boolean handleBackButton(){
+        	//Only return true if you want to overide the back button usage
+        	if(bPlayerSelect){
+        		bPlayerSelect = false;
+				bTitleScreen = true;
+				triggerRedraw();
+				return true;
+        	}
+        	else if(bResultScreen){
+        		bResultScreen = false;
+				bTitleScreen = true;
+				triggerRedraw();
+				return true;
+        	}
+        	else if(bScoreScreen){
+        		bScoreScreen = false;
+				pGameThread.resumeThread();
+				return true;
+        	}
+        	return false;
+        }
+        
+        /**
+         * doDraw sub functions
+         * Android throws up a VerifyException when methods reach an arbitrary limit
+         * (yes the error message calls it arbitrary) These functions are merely things
+         * that used to be in doDraw but were moved here to reduce the size.
+         */
+        private void drawDiscards(Canvas canvas){
+        	try{
+	        	ArrayList<Tile> discards = pGameThread.mTable.getDiscards(1);
+	        	int riichiTile = pGameThread.mTable.getRiichiTile(1);
+	        	
+	        	int row = 0;
+	        	int column = 0;
+	        	boolean riichiTileUsed = false;
+	        	if(!(pGameThread.mPlayers[1].powerActivated[Globals.Powers.invisibility] && bPowers)){
+		        	int discardCount = discards.size();
+		        	int lastRow = discardCount/6;
+		        	for(row = lastRow; row >= 0; row--){
+		        		riichiTileUsed = false;
+		        		boolean riichiInThisRow = ((riichiTile >= (row*6))&&(riichiTile <= (row*6)+5));
+		        		
+		        		for(column = 5; column >= 0; column--){
+		        			int idx = (row*6)+column;
+		        			if(idx >= discardCount)
+		        				continue;
+		        			
+		        			boolean bEnlarge = (pGameThread.curPlayer == 1)&&(idx==(discards.size()-1))&&(needButtons[PON_BTN] || needButtons[CHI_BTN] || needButtons[RON_BTN]);
+			        		float PosX = (centerX + ((float)(miniTileWidth*3)) + (miniShellLeftWidth*3)) + (row * (miniTileHeight+(miniShellTopHeight/2)));
+			        		float PosY = (centerY + ((float)(miniTileWidth*3)) + (miniShellLeftWidth*3)) + (column * -(miniTileWidth+miniShellLeftWidth)) - (miniTileWidth+miniShellLeftWidth);
+			        		
+			        		if(idx != riichiTile && !riichiTileUsed && riichiInThisRow)
+			        			PosY -= (miniTileHeight-miniTileWidth);
+			        		
+			        		int bmpIdx = tileToBmpIndex(discards.get(idx));
+			        		if(idx == riichiTile){
+			        			riichiTileUsed = true;
+			        			drawTile(canvas, bmpIdx, (int)PosX, (int)PosY-(miniTileHeight-miniTileWidth), Globals.Winds.WEST, true, false);
+			        		}
+			        		else{
+			        			drawTile(canvas, bmpIdx, (int)PosX, (int)PosY, Globals.Winds.SOUTH, true, true);
+			        		}
+			        		
+			        		if(bEnlarge){
+			        			drawTile(canvas, bmpIdx, centerX-((tileWidth+shellLeftWidth+shellRightWidth)/2), (int) (centerY + ((miniTileWidth+miniShellLeftWidth)*3) - shellTopHeight - tileHeight - shellBottomHeight), Globals.Winds.EAST, false, true);
+			        		}
+		        		}
+		        	}
+	        	}
+	        	
+	        	discards = pGameThread.mTable.getDiscards(2);
+	        	riichiTile = pGameThread.mTable.getRiichiTile(2);
+	        	
+	        	row = 0;
+	        	column = 0;
+	        	riichiTileUsed = false;
+	        	if(!(pGameThread.mPlayers[2].powerActivated[Globals.Powers.invisibility] && bPowers)){
+	        		//We have to draw these in an odd order to get them to look right >_>
+		        	//Start in last row, but go right to left in that row
+		        	int discardCount = discards.size();
+		        	int lastRow = discardCount/6;
+		        	for(row = lastRow; row >= 0; row--){
+		        		riichiTileUsed = false;
+		        		for(column = 0; column < 6; column++){
+		        			int idx = (row*6)+column;
+		        			if(idx >= discardCount)
+		        				break;
+		        			
+		        			boolean bEnlarge = (pGameThread.curPlayer == 2)&&(idx==(discards.size()-1))&&(needButtons[PON_BTN] || needButtons[CHI_BTN] || needButtons[RON_BTN]);
+			        		float PosX = (centerX + ((float)(miniTileWidth*3)) + (miniShellLeftWidth*3)) + (column * -(miniTileWidth+miniShellLeftWidth)) - (miniTileWidth+miniShellLeftWidth);
+			        		float PosY = (centerY - ((float)(miniTileWidth*3)) - (miniShellLeftWidth*3)) + (row * -(miniTileHeight+(miniShellTopHeight/2))) - (miniTileHeight+miniShellTopHeight+miniShellBottomHeight) - 1;
+	
+			        		if(riichiTileUsed)
+			        			PosX -= (miniTileHeight-miniTileWidth);
+			        		
+			        		int bmpIdx = tileToBmpIndex(discards.get(idx));
+			        		if(idx == riichiTile){
+			        			riichiTileUsed = true;
+			        			drawTile(canvas, bmpIdx, (int)PosX-(miniTileHeight-miniTileWidth), (int)PosY, Globals.Winds.SOUTH, true, true);
+			        		}
+			        		else
+			        			drawTile(canvas, bmpIdx, (int)PosX, (int)PosY, Globals.Winds.WEST, true, false);
+			        		
+			        		if(bEnlarge)
+			        			drawTile(canvas, bmpIdx, centerX-((tileWidth+shellLeftWidth+shellRightWidth)/2), (int) (centerY + ((miniTileWidth+miniShellLeftWidth)*3) - shellTopHeight - tileHeight - shellBottomHeight), Globals.Winds.EAST, false, true);
+		        				
+		        		}
+		        	}
+	        		
+	        	}
+	        	
+	        	discards = pGameThread.mTable.getDiscards(3);
+	        	riichiTile = pGameThread.mTable.getRiichiTile(3);
+	        	
+	        	row = 0;
+	        	column = 0;
+	        	riichiTileUsed = false;
+	        	if(!(pGameThread.mPlayers[3].powerActivated[Globals.Powers.invisibility] && bPowers)){
+	        		//We have to draw these in an odd order to get them to look right >_>
+		        	//Start in last row, but go right to left in that row
+		        	int discardCount = discards.size();
+		        	int lastRow = discardCount/6;
+		        	for(row = lastRow; row >= 0; row--){
+		        		riichiTileUsed = false;
+		        		for(column = 0; column < 6; column++){
+		        			int idx = (row*6)+column;
+		        			if(idx >= discardCount)
+		        				break;
+		        			
+		        			boolean bEnlarge = (pGameThread.curPlayer == 3)&&(idx==(discards.size()-1))&&(needButtons[PON_BTN] || needButtons[CHI_BTN] || needButtons[RON_BTN]);
+			        		float PosX = (centerX - ((float)(miniTileWidth*3)) - (miniShellLeftWidth*3)) + (row * -(miniTileHeight+(miniShellTopHeight/2))) - (miniTileHeight+miniShellTopHeight+miniShellBottomHeight);
+			        		float PosY = (centerY - ((float)(miniTileWidth*3)) - (miniShellLeftWidth*3)) + (column * (miniTileWidth+miniShellLeftWidth));
+			        		if(riichiTileUsed)
+			        			PosY += miniTileHeight-miniTileWidth;
+			        		
+			        		int bmpIdx = tileToBmpIndex(discards.get(idx));
+			        		if(idx == riichiTile){
+			        			riichiTileUsed = true;
+			        			drawTile(canvas, bmpIdx, (int)PosX, (int)PosY, Globals.Winds.EAST, true, true);
+			        		}
+			        		else
+			        			drawTile(canvas, bmpIdx, (int)PosX, (int)PosY, Globals.Winds.NORTH, true, false);
+			        		
+			        		if(bEnlarge)
+			        			drawTile(canvas, bmpIdx, centerX-((tileWidth+shellLeftWidth+shellRightWidth)/2), (int) (centerY + ((miniTileWidth+miniShellLeftWidth)*3) - shellTopHeight - tileHeight - shellBottomHeight), Globals.Winds.EAST, false, true);
+		        		}
+		        	}
+	        	}
+	        	
+	        	discards = pGameThread.mTable.getDiscards(0);
+	        	riichiTile = pGameThread.mTable.getRiichiTile(0);
+	        	
+	        	row = 0;
+	        	column = 0;
+	        	riichiTileUsed = false;
+	   
+	        	//We have to draw these in an odd order to get them to look right >_>
+	        	//Start in last row, but go right to left in that row
+	        	int discardCount = discards.size();
+	        	int lastRow = discardCount/6;
+	        	for(row = 0; row <= lastRow; row++){
+	        		riichiTileUsed = false;
+	        		for(column = 0; column < 6; column++){
+	        			int idx = (row*6)+column;
+	        			if(idx >= discardCount)
+	        				break;
+	        			
+	        			float PosX = (centerX - ((float)(miniTileWidth*3)) - (miniShellLeftWidth*3)) + (column * (miniTileWidth+miniShellLeftWidth));
+		        		float PosY = (centerY + ((float)(miniTileWidth*3)) + (miniShellLeftWidth*3)) + (row * (miniTileHeight+(miniShellTopHeight/2))) + row;
+		        		if(riichiTileUsed)
+		        			PosX += miniTileHeight-miniTileWidth;
+		        		
+		        		int bmpIdx = tileToBmpIndex(discards.get(idx));
+		        		if(idx == riichiTile){
+		        			riichiTileUsed = true;
+		        			drawTile(canvas, bmpIdx, (int)PosX, (int)PosY, Globals.Winds.NORTH, true, false);
+		        		}
+		        		else{
+		        			drawTile(canvas, bmpIdx, (int)PosX, (int)PosY, Globals.Winds.EAST, true, true);
+		        		}
+	        		}
+	        	}
+        	}
+        	catch(Exception e){
+        		String WTFAmI = e.toString();
+    			Log.e("SakiView.drawDiscards", WTFAmI);
+        	}
+        }
+        
+        private void drawMelds(Canvas canvas){
+        	try{
+        		int miniTileWidthOffset = miniTileWidth + miniShellLeftWidth;
+    			int miniTileHeightOffset = (miniTileHeight+(miniShellTopHeight/2));
+    			int X = 0;
+    			int Y = 0;
+    			
+        		//Player Melds
+	        	int heightWidthDiff = ((miniShellTopHeight+miniTileHeight+miniShellBottomHeight)-(miniTileWidth+miniShellLeftWidth+miniShellRightWidth));
+	        	int numberOfMelds = pGameThread.mPlayers[0].myHand.numberOfMelds;
+	        	if(numberOfMelds > 0){
+	        		//X = mCanvasWidth - (4*miniTileWidthOffset);
+	            	//Y = mCanvasHeight - miniTileHeight - miniShellTopHeight - miniShellBottomHeight;
+		        	//Globals.myAssert(startPos > 0);
+		        	for(int meldIdx = (numberOfMelds-1); meldIdx >= 0; meldIdx--){
+		        		X = mCanvasWidth - (4*miniTileWidthOffset);
+		            	Y = mCanvasHeight - miniTileHeight - miniShellTopHeight - miniShellBottomHeight;
+		        		
+		        		if(meldIdx == 1/* || meldIdx == 3*/)
+		        			Y -= (((miniTileWidth+miniShellLeftWidth+miniShellRightWidth)*2) + 1);
+		        		if(meldIdx == 2){
+		        			X = mCanvasWidth - (8*miniTileWidthOffset);
+			            	//Y = mCanvasHeight - miniTileHeight - miniShellTopHeight - miniShellBottomHeight;
+		        		}
+		        		if(meldIdx == 3){
+		        			X = mCanvasWidth - (8*miniTileWidthOffset);
+		        			Y -= (((miniTileWidth+miniShellLeftWidth+miniShellRightWidth)*2) + 1);
+		        		}
+		        		
+		        		//Closed Kan
+		        		if(pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][1]].selfKan){
+		        			int bmpIdx = pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][1]].rawNumber;
+		        			drawTile(canvas, 0, X, Y, Globals.Winds.EAST, true, true);
+		        			drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y, Globals.Winds.EAST, true, true);
+		        			drawTile(canvas, bmpIdx, X+(2*miniTileWidthOffset), Y, Globals.Winds.EAST, true, true);
+		        			drawTile(canvas, 0, X+(3*miniTileWidthOffset), Y, Globals.Winds.EAST, true, true);
+		        			continue;
+		        		}
+		        		
+		        		//Open Kan
+		        		if(pGameThread.mPlayers[0].myHand.melds[meldIdx][0] == 4){
+		        			int playerFrom = pGameThread.mPlayers[0].myHand.melds[meldIdx][5];
+		        			int bmpIdx = pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][1]].rawNumber;
+		        			if(playerFrom == 3){
+		        				drawTile(canvas, bmpIdx, X, Y+heightWidthDiff-miniTileWidthOffset, Globals.Winds.NORTH, true, false);
+		        				drawTile(canvas, bmpIdx, X, Y+heightWidthDiff, Globals.Winds.NORTH, true, false);
+		        				drawTile(canvas, bmpIdx, X+miniTileHeightOffset, Y, Globals.Winds.EAST, true, true);
+		        				drawTile(canvas, bmpIdx, X+miniTileHeightOffset+miniTileWidthOffset, Y, Globals.Winds.EAST, true, true);
+		        			}
+		        			if(playerFrom == 2){
+		        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.EAST, true, true);
+		        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y+heightWidthDiff-miniTileWidthOffset, Globals.Winds.NORTH, true, false);
+		        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y+heightWidthDiff, Globals.Winds.NORTH, true, false);
+		        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset+miniTileHeightOffset, Y, Globals.Winds.EAST, true, true);
+		        			}
+		        			if(playerFrom == 1){
+		        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.EAST, true, true);
+		        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y, Globals.Winds.EAST, true, true);
+		        				drawTile(canvas, bmpIdx, X+(2*miniTileWidthOffset), Y+heightWidthDiff-miniTileWidthOffset, Globals.Winds.NORTH, true, false);
+		        				drawTile(canvas, bmpIdx, X+(2*miniTileWidthOffset), Y+heightWidthDiff, Globals.Winds.NORTH, true, false);
+		        			}
+		        			continue;
+		        		}
+		        		
+		        		//All Others
+		        		int playerFrom = pGameThread.mPlayers[0].myHand.melds[meldIdx][5];
+	        			int bmpIdx = tileToBmpIndex(pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][1]]);//.rawNumber;
+	        			if(playerFrom == 3){
+	        				drawTile(canvas, bmpIdx, X, Y+heightWidthDiff, Globals.Winds.NORTH, true, false);
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][2]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X+miniTileHeightOffset, Y, Globals.Winds.EAST, true, true);
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][3]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X+miniTileHeightOffset+miniTileWidthOffset, Y, Globals.Winds.EAST, true, true);
+	        			}
+	        			if(playerFrom == 2){
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][1]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.EAST, true, true);
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][2]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y+heightWidthDiff, Globals.Winds.NORTH, true, false);
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][3]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset+miniTileHeightOffset, Y, Globals.Winds.EAST, true, true);
+	        			}
+	        			if(playerFrom == 1){
+	        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.EAST, true, true);
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][2]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y, Globals.Winds.EAST, true, true);
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[0].myHand.rawHand[pGameThread.mPlayers[0].myHand.melds[meldIdx][3]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X+(2*miniTileWidthOffset), Y+heightWidthDiff, Globals.Winds.NORTH, true, false);
+	        			}
+		        	}
+	        	}
+	        	
+	        	//AI Melds
+	        	numberOfMelds = pGameThread.mPlayers[1].myHand.numberOfMelds;
+	        	if(numberOfMelds > 0){
+		        	//Globals.myAssert(startPos > 0);
+		        	for(int meldIdx = (numberOfMelds-1); meldIdx >= 0; meldIdx--){
+		        		X = mCanvasWidth - portraitWidth - (miniTileHeight+miniShellTopHeight+miniShellBottomHeight);
+		            	Y = ((mCanvasHeight - tileHeight)/2)-portraitHeight+(4*miniTileWidthOffset) - (miniTileWidth+miniShellLeftWidth+miniShellRightWidth);
+		            	
+		        		if(meldIdx == 0)
+		        			X -= ((miniTileWidth + miniShellLeftWidth + miniShellRightWidth)*2)+1;
+		            	//if(meldIdx == 1)
+		        		//	X -= ((miniTileWidth*2) + 1);
+		        		if(meldIdx == 2){
+		        			X -= ((miniTileWidth + miniShellLeftWidth + miniShellRightWidth)*2)+1;
+			            	Y += (4*miniTileWidthOffset);
+		        		}
+		        		if(meldIdx == 3){
+				            Y += (4*miniTileWidthOffset);
+		        		}
+		        		
+		        		//Closed Kan
+		        		if(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][1]].selfKan){
+		        			int bmpIdx = pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][1]].rawNumber;
+		        			drawTile(canvas, 0, X, Y-(3*miniTileWidthOffset), Globals.Winds.SOUTH, true, false);
+		        			drawTile(canvas, bmpIdx, X, Y-(2*miniTileWidthOffset), Globals.Winds.SOUTH, true, true);
+		        			drawTile(canvas, bmpIdx, X, Y-miniTileWidthOffset, Globals.Winds.SOUTH, true, true);
+		        			drawTile(canvas, 0, X, Y, Globals.Winds.SOUTH, true, false);
+		        			continue;
+		        		}
+		        		
+		        		//Open Kan
+		        		if(pGameThread.mPlayers[1].myHand.melds[meldIdx][0] == 4){
+		        			int playerFrom = pGameThread.mPlayers[1].myHand.melds[meldIdx][5];
+		        			int bmpIdx = pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][1]].rawNumber;
+		        			if(playerFrom == 2){
+		        				drawTile(canvas, bmpIdx, X, Y-miniTileWidthOffset-miniTileWidthOffset, Globals.Winds.SOUTH, true, true);
+		        				drawTile(canvas, bmpIdx, X, Y-miniTileWidthOffset, Globals.Winds.SOUTH, true, true);
+		        				drawTile(canvas, bmpIdx, X+heightWidthDiff, Y, Globals.Winds.WEST, true, false);
+		        				drawTile(canvas, bmpIdx, X+heightWidthDiff-miniTileWidthOffset, Y, Globals.Winds.WEST, true, false);
+		        			}
+		        			if(playerFrom == 3){
+		        				drawTile(canvas, bmpIdx, X, Y-miniTileHeightOffset-miniTileWidthOffset, Globals.Winds.SOUTH, true, true);
+		        				drawTile(canvas, bmpIdx, X+heightWidthDiff, Y-miniTileHeightOffset, Globals.Winds.WEST, true, false);
+		        				drawTile(canvas, bmpIdx, X+heightWidthDiff-miniTileWidthOffset, Y-miniTileHeightOffset, Globals.Winds.WEST, true, false);
+		        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.SOUTH, true, true);
+		        			}
+		        			if(playerFrom == 0){
+		        				drawTile(canvas, bmpIdx, X+heightWidthDiff, Y-(miniTileWidthOffset*2)-heightWidthDiff, Globals.Winds.WEST, true, false);
+		        				drawTile(canvas, bmpIdx, X+heightWidthDiff-miniTileWidthOffset, Y-(miniTileWidthOffset*2)-heightWidthDiff, Globals.Winds.WEST, true, false);
+		        				drawTile(canvas, bmpIdx, X, Y-miniTileWidthOffset, Globals.Winds.SOUTH, true, true);
+		        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.SOUTH, true, true);
+		        			}
+		        			continue;
+		        		}
+		        		
+		        		//All Others
+		        		int playerFrom = pGameThread.mPlayers[1].myHand.melds[meldIdx][5];
+	        			int bmpIdx = 0;//tileToBmpIndex(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][1]]);//.rawNumber;
+	        			if(playerFrom == 0){
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][3]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X, Y-miniTileWidthOffset-miniTileWidthOffset, Globals.Winds.SOUTH, true, true);
+	        				
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][2]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X, Y-miniTileWidthOffset, Globals.Winds.SOUTH, true, true);
+	        				
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][1]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X+heightWidthDiff, Y, Globals.Winds.WEST, true, false);
+	        			}
+	        			if(playerFrom == 3){
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][3]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X, Y-miniTileHeightOffset-miniTileWidthOffset, Globals.Winds.SOUTH, true, true);
+	        				
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][2]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X+heightWidthDiff, Y-miniTileHeightOffset, Globals.Winds.WEST, true, false);
+	        				
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][1]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.SOUTH, true, true);
+	        			}
+	        			if(playerFrom == 2){
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][3]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X+heightWidthDiff, Y-miniTileWidthOffset-miniTileHeightOffset, Globals.Winds.WEST, true, false);
+	        				
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][2]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X, Y-miniTileWidthOffset, Globals.Winds.SOUTH, true, true);
+	        				
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[1].myHand.rawHand[pGameThread.mPlayers[1].myHand.melds[meldIdx][1]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.SOUTH, true, true);
+	        			}
+		        	}
+	        	}
+
+	        	numberOfMelds = pGameThread.mPlayers[2].myHand.numberOfMelds;
+	        	if(numberOfMelds > 0){
+		        	//Globals.myAssert(startPos > 0);
+		        	for(int meldIdx = (numberOfMelds-1); meldIdx >= 0; meldIdx--){
+		        		X = 1;
+		            	Y = 1;
+		            	
+		        		if(meldIdx == 1)
+		        			X += (4*miniTileWidthOffset);
+		        			//Y += ((miniTileWidth*2) + 1);
+		        		if(meldIdx == 2){
+			            	X += ((4*miniTileWidthOffset)*2);
+		        		}
+		        		if(meldIdx == 3){
+		        			//Y += ((miniTileWidth*2) + 1);
+				            X += ((4*miniTileWidthOffset)*3);
+		        		}
+		        		
+		        		//Closed Kan
+		        		if(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][1]].selfKan){
+		        			int bmpIdx = pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][1]].rawNumber;
+		        			drawTile(canvas, 0, X+(3*miniTileWidthOffset), Y, Globals.Winds.WEST, true, false);
+		        			drawTile(canvas, bmpIdx, X+(2*miniTileWidthOffset), Y, Globals.Winds.WEST, true, false);
+		        			drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y, Globals.Winds.WEST, true, false);
+		        			drawTile(canvas, 0, X, Y, Globals.Winds.WEST, true, false);
+		        			continue;
+		        		}
+		        		
+		        		//Open Kan
+		        		if(pGameThread.mPlayers[2].myHand.melds[meldIdx][0] == 4){
+		        			int playerFrom = pGameThread.mPlayers[2].myHand.melds[meldIdx][5];
+		        			int bmpIdx = pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][1]].rawNumber;
+		        			if(playerFrom == 3){
+		        				drawTile(canvas, bmpIdx, X+miniTileHeightOffset+miniTileWidthOffset, Y, Globals.Winds.WEST, true, false);
+		        				drawTile(canvas, bmpIdx, X+miniTileHeightOffset, Y, Globals.Winds.WEST, true, false);
+		        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.NORTH, true, true);
+		        				drawTile(canvas, bmpIdx, X, Y+miniTileWidthOffset, Globals.Winds.NORTH, true, true);
+		        			}
+		        			if(playerFrom == 0){
+		        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset+miniTileHeightOffset, Y, Globals.Winds.WEST, true, false);
+		        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y, Globals.Winds.NORTH, true, true);
+		        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y+miniTileWidthOffset, Globals.Winds.NORTH, true, true);
+		        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.WEST, true, false);
+
+		        			}
+		        			if(playerFrom == 1){
+		        				drawTile(canvas, bmpIdx, X+(2*miniTileWidthOffset), Y, Globals.Winds.NORTH, true, true);
+		        				drawTile(canvas, bmpIdx, X+(2*miniTileWidthOffset), Y+miniTileWidthOffset, Globals.Winds.NORTH, true, true);
+		        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y, Globals.Winds.WEST, true, false);
+		        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.WEST, true, false);
+		        			}
+		        			continue;
+		        		}
+		        		
+		        		//All Others
+		        		int playerFrom = pGameThread.mPlayers[2].myHand.melds[meldIdx][5];
+	        			int bmpIdx = 0;//tileToBmpIndex(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][1]]);//.rawNumber;
+	        			if(playerFrom == 3){
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][3]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X+miniTileHeightOffset+miniTileWidthOffset, Y, Globals.Winds.WEST, true, false);
+	        				
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][2]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X+miniTileHeightOffset, Y, Globals.Winds.WEST, true, false);
+	        				
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][1]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X, Y+heightWidthDiff, Globals.Winds.NORTH, true, true);
+	        			}
+	        			if(playerFrom == 0){
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][3]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset+miniTileHeightOffset, Y, Globals.Winds.WEST, true, false);
+	        				
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][2]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y+heightWidthDiff, Globals.Winds.NORTH, true, true);
+	        				
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][1]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.WEST, true, false);
+	        			}
+	        			if(playerFrom == 1){
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][3]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X+(2*miniTileWidthOffset), Y+heightWidthDiff, Globals.Winds.NORTH, true, true);
+	        				
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][2]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y, Globals.Winds.WEST, true, false);
+	        				
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[2].myHand.rawHand[pGameThread.mPlayers[2].myHand.melds[meldIdx][1]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.WEST, true, false);
+	        			}
+		        	}
+	        	}
+	        	
+	        	numberOfMelds = pGameThread.mPlayers[3].myHand.numberOfMelds;
+	        	if(numberOfMelds > 0){
+		        	//Globals.myAssert(startPos > 0);
+		        	for(int meldIdx = (numberOfMelds-1); meldIdx >= 0; meldIdx--){
+		        		X = portraitWidth;
+		            	Y = ((mCanvasHeight - tileHeight)/2)+portraitHeight-(4*miniTileWidthOffset)/*+Offset(miniTileWidth*2)*/;
+		            	
+		        		if(meldIdx == 0)
+		        			X += ((miniTileWidthOffset*2) + 1);
+		        		if(meldIdx == 3){
+			            	Y -= (4*miniTileWidthOffset);
+		        		}
+		        		if(meldIdx == 2){
+		        			X += ((miniTileWidthOffset*2) + 1);
+				            Y -= (4*miniTileWidthOffset);
+		        		}
+		        		
+		        		//Closed Kan
+		        		if(pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.melds[meldIdx][1]].selfKan){
+		        			int bmpIdx = pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.melds[meldIdx][1]].rawNumber;
+		        			drawTile(canvas, 0, X, Y, Globals.Winds.NORTH, true, false);
+		        			drawTile(canvas, bmpIdx, X, Y+miniTileWidthOffset, Globals.Winds.NORTH, true, false);
+		        			drawTile(canvas, bmpIdx, X, Y+(2*miniTileWidthOffset), Globals.Winds.NORTH, true, false);
+		        			drawTile(canvas, 0, X, Y+(3*miniTileWidthOffset), Globals.Winds.NORTH, true, false);
+		        			//canvas.drawBitmap(TileBMPsNorthRotated[0], X, Y,  null);
+    						//canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X, Y+miniTileWidth,  null);
+    						//canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X, Y+(miniTileWidth*2),  null);
+    						//canvas.drawBitmap(TileBMPsNorthRotated[0], X, Y+(miniTileWidth*3),  null);
+		        			continue;
+		        		}
+		        		
+		        		//Open Kan
+		        		if(pGameThread.mPlayers[3].myHand.melds[meldIdx][0] == 4){
+		        			int playerFrom = pGameThread.mPlayers[3].myHand.melds[meldIdx][5];
+		        			int bmpIdx = pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.melds[meldIdx][1]].rawNumber;
+		        			if(playerFrom == 2){
+		        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.EAST, true, true);
+			        			drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y, Globals.Winds.EAST, true, true);
+			        			drawTile(canvas, bmpIdx, X, Y+miniTileHeightOffset, Globals.Winds.NORTH, true, false);
+			        			drawTile(canvas, bmpIdx, X, Y+miniTileHeightOffset+miniTileWidthOffset, Globals.Winds.NORTH, true, false);
+		        			}
+		        			if(playerFrom == 1){
+		        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.NORTH, true, false);
+		        				drawTile(canvas, bmpIdx, X, Y+miniTileWidthOffset, Globals.Winds.EAST, true, true);
+			        			drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y+miniTileWidthOffset, Globals.Winds.EAST, true, true);
+			        			drawTile(canvas, bmpIdx, X, Y+miniTileHeightOffset+miniTileWidthOffset, Globals.Winds.NORTH, true, false);
+		        			}
+		        			if(playerFrom == 0){
+		        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.NORTH, true, false);
+			        			drawTile(canvas, bmpIdx, X, Y+miniTileWidthOffset, Globals.Winds.NORTH, true, false);
+		        				drawTile(canvas, bmpIdx, X, Y+(miniTileWidthOffset*2), Globals.Winds.EAST, true, true);
+			        			drawTile(canvas, bmpIdx, X+miniTileWidthOffset, Y+(miniTileWidthOffset*2), Globals.Winds.EAST, true, true);
+		        			}
+		        			continue;
+		        		}
+		        		
+		        		//All Others
+		        		int playerFrom = pGameThread.mPlayers[3].myHand.melds[meldIdx][5];
+	        			int bmpIdx = tileToBmpIndex(pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.melds[meldIdx][1]]);//.rawNumber;
+	        			if(playerFrom == 2){
+	        				drawTile(canvas, bmpIdx, X/*+heightWidthDiff*/, Y, Globals.Winds.EAST, true, true);
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.melds[meldIdx][2]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X, Y+miniTileHeightOffset, Globals.Winds.NORTH, true, false);
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.melds[meldIdx][3]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X, Y+miniTileHeightOffset+miniTileWidthOffset, Globals.Winds.NORTH, true, false);
+	        			}
+	        			if(playerFrom == 1){
+	        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.NORTH, true, false);
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.melds[meldIdx][2]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X/*+heightWidthDiff*/, Y+miniTileWidthOffset, Globals.Winds.EAST, true, true);
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.melds[meldIdx][3]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X, Y+miniTileHeightOffset+miniTileWidthOffset, Globals.Winds.NORTH, true, false);
+	        			}
+	        			if(playerFrom == 0){
+	        				drawTile(canvas, bmpIdx, X, Y, Globals.Winds.NORTH, true, false);
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.melds[meldIdx][2]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X, Y+miniTileWidthOffset, Globals.Winds.NORTH, true, false);
+	        				bmpIdx = tileToBmpIndex(pGameThread.mPlayers[3].myHand.rawHand[pGameThread.mPlayers[3].myHand.melds[meldIdx][3]]);//.rawNumber;
+	        				drawTile(canvas, bmpIdx, X/*+heightWidthDiff*/, Y+(2*miniTileWidthOffset), Globals.Winds.EAST, true, true);
+	        			}
+		        	}
+	        	}
+        	}
+        	catch(Exception e){
+        		String WTFAmI = e.toString();
+    			Log.e("SakiView.drawMelds", WTFAmI);
+        	}
+        }
 
         /**
          * Helpers
          */
+        private void drawTile(Canvas canvas, int bmpIdx, int X, int Y, int rotation, boolean isMini, boolean invert){
+        	Paint blackBrush = new Paint();
+			blackBrush.setColor(Color.BLACK);
+			
+        	if(rotation == Globals.Winds.EAST){
+        		if(bEnlargeTiles){
+        			if(isMini){
+        				canvas.drawRect(X-1, Y-1, X+miniTileWidth+1, Y+miniTileHeight+1, blackBrush);
+        				canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X, Y,  null);
+        			}
+        			else{
+        				canvas.drawRect(X-1, Y-1, X+tileWidth+1, Y+tileHeight+1, blackBrush);
+        				canvas.drawBitmap(TileBMPs[bmpIdx], X, Y,  null);
+        			}
+        		}
+        		else if(isMini){
+        			if(invert){
+        				if(bmpIdx == 0){
+	        				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.MINI_INVERT_BLANK], X, Y, null);
+	        			}
+	        			else{
+	        				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.MINI_INVERT_SHELL_BOTTOM], X, Y,  null);
+	        				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.MINI_INVERT_SHELL_LEFT], X, Y+miniShellBottomHeight,  null);
+		        			canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniShellLeftWidth, Y+miniShellBottomHeight,  null);
+		        			canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.MINI_INVERT_SHELL_RIGHT], X+miniShellLeftWidth+miniTileWidth, Y+miniShellBottomHeight,  null);
+		        			canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.MINI_INVERT_SHELL_TOP], X, Y+miniShellBottomHeight+miniTileHeight,  null);
+	        			}
+        			}
+        			else{
+	        			if(bmpIdx == 0){
+	        				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.MINI_BLANK], X, Y, null);
+	        			}
+	        			else{
+	        				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_TOP], X, Y,  null);
+	        				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_LEFT], X, Y+miniShellTopHeight,  null);
+		        			canvas.drawBitmap(TileBMPs50PercentUser[bmpIdx], X+miniShellLeftWidth, Y+miniShellTopHeight,  null);
+		        			canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_RIGHT], X+miniShellLeftWidth+miniTileWidth, Y+miniShellTopHeight,  null);
+		        			canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_BOTTOM], X, Y+miniShellTopHeight+miniTileHeight,  null);
+	        			}
+        			}
+        		}
+        		else{
+        			if(invert){
+        				if(bmpIdx == 0){
+	        				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.EAST_INVERT_BLANK], X, Y,  null);
+	        			}
+	        			else{
+	        				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_BOTTOM], X, Y,  null);
+	        				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_LEFT], X, Y+shellBottomHeight,  null);
+		        			canvas.drawBitmap(TileBMPs[bmpIdx], X+shellLeftWidth, Y+shellBottomHeight,  null);
+		        			canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_RIGHT], X+shellLeftWidth+tileWidth, Y+shellBottomHeight,  null);
+		        			canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_TOP], X, Y+shellBottomHeight+tileHeight,  null);
+	        			}
+        			}
+        			else{
+	        			if(bmpIdx == 0){
+	        				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.EAST_BLANK], X, Y,  null);
+	        			}
+	        			else{
+	        				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_TOP], X, Y,  null);
+	        				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_LEFT], X, Y+shellTopHeight,  null);
+		        			canvas.drawBitmap(TileBMPs[bmpIdx], X+shellLeftWidth, Y+shellTopHeight,  null);
+		        			canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_RIGHT], X+shellLeftWidth+tileWidth, Y+shellTopHeight,  null);
+		        			canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_BOTTOM], X, Y+shellTopHeight+tileHeight,  null);
+	        			}
+        			}
+        		}
+        	}
+        	else if(rotation == Globals.Winds.SOUTH){
+        		if(bEnlargeTiles){
+        			canvas.drawRect(X-1, Y-1, X+miniTileHeight+1, Y+miniTileWidth+1, blackBrush);
+        			canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X, Y,  null);
+        		}
+        		else if(invert){
+        			if(bmpIdx == 0){
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.SOUTH_INVERT_BLANK], X, Y,  null);
+	    			}
+	    			else{
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.NORTH_INVERT_SHELL_TOP], X, Y,  null);
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.NORTH_INVERT_SHELL_LEFT], X+miniShellTopHeight, Y,  null);
+	        			canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X+miniShellTopHeight, Y+miniShellLeftWidth,  null);
+	        			canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.NORTH_INVERT_SHELL_RIGHT], X+miniShellTopHeight, Y+miniShellLeftWidth+miniTileWidth,  null);
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.NORTH_INVERT_SHELL_BOTTOM], X+miniShellTopHeight+miniTileHeight, Y,  null);
+	    				//canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.SOUTH_INVERT_SHELL_BOTTOM], X, Y,  null);
+	    				//canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.SOUTH_INVERT_SHELL_RIGHT], X+miniShellBottomHeight, Y,  null);
+	        			//canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X+miniShellBottomHeight, Y+miniShellRightWidth,  null);
+	        			//canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.SOUTH_INVERT_SHELL_LEFT], X+miniShellBottomHeight, Y+miniShellRightWidth+miniTileWidth,  null);
+	    				//canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.SOUTH_INVERT_SHELL_TOP], X+miniShellBottomHeight+miniTileHeight, Y,  null);
+	    			}
+        		}
+        		else{
+	        		if(bmpIdx == 0){
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.SOUTH_BLANK], X, Y,  null);
+	    			}
+	    			else{
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.SOUTH_SHELL_TOP], X, Y,  null);
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.SOUTH_SHELL_RIGHT], X+miniShellTopHeight, Y,  null);
+	        			canvas.drawBitmap(TileBMPsSouthRotated[bmpIdx], X+miniShellTopHeight, Y+miniShellRightWidth,  null);
+	        			canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.SOUTH_SHELL_LEFT], X+miniShellTopHeight, Y+miniShellRightWidth+miniTileWidth,  null);
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.SOUTH_SHELL_BOTTOM], X+miniShellTopHeight+miniTileHeight, Y,  null);
+	    			}
+        		}
+        	}
+        	else if(rotation == Globals.Winds.WEST){
+        		if(bEnlargeTiles){
+        			canvas.drawRect(X-1, Y-1, X+miniTileWidth+1, Y+miniTileHeight+1, blackBrush);
+        			canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X, Y,  null);
+        		}
+        		else if(invert){
+        			if(bmpIdx == 0){
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.WEST_INVERT_BLANK], X, Y,  null);
+	    			}
+	    			else{
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.WEST_INVERT_SHELL_TOP], X, Y,  null);
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.WEST_INVERT_SHELL_RIGHT], X, Y+miniShellTopHeight,  null);
+	        			canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+miniShellRightWidth, Y+miniShellTopHeight,  null);
+	        			canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.WEST_INVERT_SHELL_LEFT], X+miniShellRightWidth+miniTileWidth, Y+miniShellTopHeight,  null);
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.WEST_INVERT_SHELL_BOTTOM], X, Y+miniShellTopHeight+miniTileHeight,  null);
+	    			}
+        		}
+        		else{
+	        		if(bmpIdx == 0){
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.WEST_BLANK], X, Y,  null);
+	    			}
+	    			else{
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.WEST_SHELL_BOTTOM], X, Y,  null);
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.WEST_SHELL_RIGHT], X, Y+miniShellBottomHeight,  null);
+	        			canvas.drawBitmap(TileBMPsWestRotated[bmpIdx], X+miniShellRightWidth, Y+miniShellBottomHeight,  null);
+	        			canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.WEST_SHELL_LEFT], X+miniShellRightWidth+miniTileWidth, Y+miniShellBottomHeight,  null);
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.WEST_SHELL_TOP], X, Y+miniShellBottomHeight+miniTileHeight,  null);
+	    			}
+        		}
+        	}
+        	else if(rotation == Globals.Winds.NORTH){
+        		if(bEnlargeTiles){
+        			canvas.drawRect(X-1, Y-1, X+miniTileHeight+1, Y+miniTileWidth+1, blackBrush);
+        			canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X, Y,  null);
+        		}
+        		else if(invert){
+        			if(bmpIdx == 0){
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.NORTH_INVERT_BLANK], X, Y,  null);
+	    			}
+	    			else{
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.NORTH_INVERT_SHELL_TOP], X, Y,  null);
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.NORTH_INVERT_SHELL_LEFT], X+miniShellTopHeight, Y,  null);
+	        			canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X+miniShellTopHeight, Y+miniShellLeftWidth,  null);
+	        			canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.NORTH_INVERT_SHELL_RIGHT], X+miniShellTopHeight, Y+miniShellLeftWidth+miniTileWidth,  null);
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.NORTH_INVERT_SHELL_BOTTOM], X+miniShellTopHeight+miniTileHeight, Y,  null);
+	    			}
+        		}
+        		else{
+	        		if(bmpIdx == 0){
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.NORTH_BLANK], X, Y,  null);
+	    			}
+	    			else{
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.NORTH_SHELL_BOTTOM], X, Y,  null);
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.NORTH_SHELL_LEFT], X+miniShellBottomHeight, Y,  null);
+	        			canvas.drawBitmap(TileBMPsNorthRotated[bmpIdx], X+miniShellBottomHeight, Y+miniShellLeftWidth,  null);
+	        			canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.NORTH_SHELL_RIGHT], X+miniShellBottomHeight, Y+miniShellLeftWidth+miniTileWidth,  null);
+	    				canvas.drawBitmap(tileMisc[Globals.Graphics.TileMisc.NORTH_SHELL_TOP], X+miniShellBottomHeight+miniTileHeight, Y,  null);
+	    			}
+        		}
+        	}
+        	else
+        		Globals.myAssert(false);
+        }
+        
+        private void drawButton(Canvas canvas, String btnText, int X, int Y, int width, int height, float fixedTextSize, boolean wantBackground){
+        	if(wantBackground){
+        		Paint blackBrush = new Paint();
+        		blackBrush.setColor(Color.BLACK);
+        		Paint whiteBrush = new Paint();
+        		whiteBrush.setColor(Color.WHITE);
+        		RectF outer = new RectF(X-2, Y-2, X+width+2, Y+height+2);
+        		RectF inner = new RectF(X, Y, X+width, Y+height); 
+        		canvas.drawRoundRect(outer, 2, 2, blackBrush);
+        		canvas.drawRoundRect(inner, 2, 2, whiteBrush);
+        	}
+        	Paint textBrush = new Paint();
+        	textBrush.setColor(Color.BLACK);
+        	if(fixedTextSize > 0)
+        		textBrush.setTextSize(fixedTextSize);
+        	else
+        		textBrush.setTextSize(scaleText(btnText, width-2, height-2));
+        	Rect bounds = new Rect();
+        	textBrush.getTextBounds(btnText,0, btnText.length(), bounds);
+        	int selectionHeight = bounds.height();
+        	int selectionWidth = bounds.width();
+        	canvas.drawText(btnText, X+(width/2)-(selectionWidth/2), Y+(height/2)+(selectionHeight/2), textBrush);
+        }
+        
         private int coordinatesToTile(float x, float y){
         	int HandSize = pGameThread.mPlayers[0].myHand.activeHandSize;
-        	int tileX = centerX - ((HandSize * tileWidth)/2);
+        	int tileX = centerX - ((HandSize * (tileWidth+shellLeftWidth))/2);
+        	
         	int tileY = (mCanvasHeight - tileHeight) - 1;
         	if(y > tileY){
-        		int tileIdx = (int)((x - tileX)/(tileWidth));
+        		int tileIdx = (int)((x - tileX)/(tileWidth+shellLeftWidth));
         		if(tileIdx < HandSize)
         			return tileIdx;
         	}
@@ -2043,6 +2440,364 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         	return tileToUse.rawNumber;
         }
         
+        private void loadTileBitmaps(){
+        	Resources res = mContext.getResources();
+        	
+        	if(bEnlargeTiles){
+        		try{
+	        		tileMisc[Globals.Graphics.TileMisc.SHELL_TOP] = BitmapFactory.decodeResource(res, R.drawable.shell_top);
+		        	tileMisc[Globals.Graphics.TileMisc.SHELL_RIGHT] = BitmapFactory.decodeResource(res, R.drawable.shell_right);
+		        	tileMisc[Globals.Graphics.TileMisc.SHELL_BOTTOM] = BitmapFactory.decodeResource(res, R.drawable.shell_bottom);
+		        	tileMisc[Globals.Graphics.TileMisc.SHELL_LEFT] = BitmapFactory.decodeResource(res, R.drawable.shell_left);
+		        	tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_TOP] = BitmapFactory.decodeResource(res, R.drawable.shell_top_invert);
+		        	tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_RIGHT] = BitmapFactory.decodeResource(res, R.drawable.shell_right_invert);
+		        	tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_BOTTOM] = BitmapFactory.decodeResource(res, R.drawable.shell_bottom_invert);
+		        	tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_LEFT] = BitmapFactory.decodeResource(res, R.drawable.shell_left_invert);
+		        	tileMisc[Globals.Graphics.TileMisc.EAST_BLANK] = BitmapFactory.decodeResource(res, R.drawable.blank_simple);
+		        	//tileMisc[Globals.Graphics.TileMisc.SOUTH_BLANK] = BitmapFactory.decodeResource(res, R.drawable.south_blank);
+		        	//tileMisc[Globals.Graphics.TileMisc.WEST_BLANK] = BitmapFactory.decodeResource(res, R.drawable.west_blank);
+		        	//tileMisc[Globals.Graphics.TileMisc.NORTH_BLANK] = BitmapFactory.decodeResource(res, R.drawable.north_blank);
+		        	tileMisc[Globals.Graphics.TileMisc.EAST_INVERT_BLANK] = BitmapFactory.decodeResource(res, R.drawable.blank_simple);
+		        	//tileMisc[Globals.Graphics.TileMisc.SOUTH_INVERT_BLANK] = BitmapFactory.decodeResource(res, R.drawable.south_blank_invert);
+		        	//tileMisc[Globals.Graphics.TileMisc.WEST_INVERT_BLANK] = BitmapFactory.decodeResource(res, R.drawable.west_blank_invert);
+		        	//tileMisc[Globals.Graphics.TileMisc.NORTH_INVERT_BLANK] = BitmapFactory.decodeResource(res, R.drawable.north_blank_invert);
+		        	
+		        	shellTopWidth = 0;//tileMisc[Globals.Graphics.TileMisc.SHELL_TOP].getWidth();
+		        	shellTopHeight = 0;//tileMisc[Globals.Graphics.TileMisc.SHELL_TOP].getHeight();
+		        	shellRightWidth = 0;//tileMisc[Globals.Graphics.TileMisc.SHELL_RIGHT].getWidth();
+		        	shellRightHeight = 0;//tileMisc[Globals.Graphics.TileMisc.SHELL_RIGHT].getHeight();
+		        	shellLeftWidth = 0;//tileMisc[Globals.Graphics.TileMisc.SHELL_LEFT].getWidth();
+		        	shellLeftHeight = 0;//tileMisc[Globals.Graphics.TileMisc.SHELL_LEFT].getHeight();
+		        	shellBottomWidth = 0;//tileMisc[Globals.Graphics.TileMisc.SHELL_BOTTOM].getWidth();
+		        	shellBottomHeight = 0;//tileMisc[Globals.Graphics.TileMisc.SHELL_BOTTOM].getHeight();
+		        	
+		        	//Initialize Bitmaps
+		            TileBMPs[0] = BitmapFactory.decodeResource(res, R.drawable.blank_simple);
+		            TileBMPs[1] = BitmapFactory.decodeResource(res, R.drawable.bam1_simple);
+		            TileBMPs[2] = BitmapFactory.decodeResource(res, R.drawable.bam2_simple);
+		            TileBMPs[3] = BitmapFactory.decodeResource(res, R.drawable.bam3_simple);
+		            TileBMPs[4] = BitmapFactory.decodeResource(res, R.drawable.bam4_simple);
+		            TileBMPs[5] = BitmapFactory.decodeResource(res, R.drawable.bam5_simple);
+		            TileBMPs[6] = BitmapFactory.decodeResource(res, R.drawable.bam6_simple);
+		            TileBMPs[7] = BitmapFactory.decodeResource(res, R.drawable.bam7_simple);
+		            TileBMPs[8] = BitmapFactory.decodeResource(res, R.drawable.bam8_simple);
+		            TileBMPs[9] = BitmapFactory.decodeResource(res, R.drawable.bam9_simple);
+		            
+		            TileBMPs[10] = BitmapFactory.decodeResource(res, R.drawable.pin1_simple);
+		            TileBMPs[11] = BitmapFactory.decodeResource(res, R.drawable.pin2_simple);
+		            TileBMPs[12] = BitmapFactory.decodeResource(res, R.drawable.pin3_simple);
+		            TileBMPs[13] = BitmapFactory.decodeResource(res, R.drawable.pin4_simple);
+		            TileBMPs[14] = BitmapFactory.decodeResource(res, R.drawable.pin5_simple);
+		            TileBMPs[15] = BitmapFactory.decodeResource(res, R.drawable.pin6_simple);
+		            TileBMPs[16] = BitmapFactory.decodeResource(res, R.drawable.pin7_simple);
+		            TileBMPs[17] = BitmapFactory.decodeResource(res, R.drawable.pin8_simple);
+		            TileBMPs[18] = BitmapFactory.decodeResource(res, R.drawable.pin9_simple);
+		            
+		            TileBMPs[19] = BitmapFactory.decodeResource(res, R.drawable.man1_simple);
+		            TileBMPs[20] = BitmapFactory.decodeResource(res, R.drawable.man2_simple);
+		            TileBMPs[21] = BitmapFactory.decodeResource(res, R.drawable.man3_simple);
+		            TileBMPs[22] = BitmapFactory.decodeResource(res, R.drawable.man4_simple);
+		            TileBMPs[23] = BitmapFactory.decodeResource(res, R.drawable.man5_simple);
+		            TileBMPs[24] = BitmapFactory.decodeResource(res, R.drawable.man6_simple);
+		            TileBMPs[25] = BitmapFactory.decodeResource(res, R.drawable.man7_simple);
+		            TileBMPs[26] = BitmapFactory.decodeResource(res, R.drawable.man8_simple);
+		            TileBMPs[27] = BitmapFactory.decodeResource(res, R.drawable.man9_simple);
+		            
+		            TileBMPs[28] = BitmapFactory.decodeResource(res, R.drawable.red_simple);
+		            TileBMPs[29] = BitmapFactory.decodeResource(res, R.drawable.white_simple);
+		            TileBMPs[30] = BitmapFactory.decodeResource(res, R.drawable.green_simple);
+		            
+		            TileBMPs[31] = BitmapFactory.decodeResource(res, R.drawable.east_simple);
+		            TileBMPs[32] = BitmapFactory.decodeResource(res, R.drawable.south_simple);
+		            TileBMPs[33] = BitmapFactory.decodeResource(res, R.drawable.west_simple);
+		            TileBMPs[34] = BitmapFactory.decodeResource(res, R.drawable.north_simple);
+		            
+		            TileBMPs[35] = BitmapFactory.decodeResource(res, R.drawable.bam5red_simple);
+		            TileBMPs[36] = BitmapFactory.decodeResource(res, R.drawable.pin5red_simple);
+		            TileBMPs[37] = BitmapFactory.decodeResource(res, R.drawable.man5red_simple);
+		            
+		            //Enlargenfy
+		           /* int newWidth = tileMisc[Globals.Graphics.TileMisc.SHELL_TOP].getWidth()-(tileMisc[Globals.Graphics.TileMisc.SHELL_RIGHT].getWidth()/2);
+		            int newHeight = tileMisc[Globals.Graphics.TileMisc.SHELL_TOP].getHeight() + tileMisc[Globals.Graphics.TileMisc.SHELL_LEFT].getHeight()+tileMisc[Globals.Graphics.TileMisc.SHELL_BOTTOM].getHeight();
+		            
+		            tileMisc[Globals.Graphics.TileMisc.EAST_BLANK] = Bitmap.createScaledBitmap(tileMisc[Globals.Graphics.TileMisc.EAST_BLANK], newWidth, newHeight, false);
+		            tileMisc[Globals.Graphics.TileMisc.EAST_INVERT_BLANK] = Bitmap.createScaledBitmap(tileMisc[Globals.Graphics.TileMisc.EAST_INVERT_BLANK], newWidth, newHeight, false);
+		            
+		            for(int i = 0; i < 38; i++){
+		            	TileBMPs[i] = Bitmap.createScaledBitmap(TileBMPs[i], newWidth, newHeight, false);
+		            }*/
+		            
+		            blankTileWidth = tileMisc[Globals.Graphics.TileMisc.EAST_BLANK].getWidth();
+		        	blankTileHeight = tileMisc[Globals.Graphics.TileMisc.EAST_BLANK].getHeight();
+		            
+		            Matrix RotateAndScale = new Matrix();
+		            tileWidth = TileBMPs[1].getWidth();
+		            tileHeight = TileBMPs[1].getHeight();
+		            
+		        	for(int i = 0; i < 38; i++){
+		        		RotateAndScale.reset();
+		        		RotateAndScale.setScale(0.5f, 0.5f);
+			        	//RotateAndScale.preRotate(90.0f);
+		        		//newWidth = (portraitWidth*2)/14;
+			           // newHeight = tileHeight/2;
+			            //TileBMPs50PercentUser[i] = Bitmap.createScaledBitmap(TileBMPs[i], newWidth, newHeight, false);
+		        		TileBMPs50PercentUser[i] = Bitmap.createBitmap(TileBMPs[i], 0, 0, tileWidth, tileHeight, RotateAndScale, false);
+		        		
+		        		if(i == 0){
+			        		tileMisc[Globals.Graphics.TileMisc.MINI_BLANK] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.EAST_BLANK], 0, 0, blankTileWidth, blankTileHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.MINI_INVERT_BLANK] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.EAST_BLANK], 0, 0, blankTileWidth, blankTileHeight, RotateAndScale, false);
+			        		
+			        		int tempWidth = tileMisc[Globals.Graphics.TileMisc.EAST_BLANK].getWidth();
+			        		int tempHeight = tileMisc[Globals.Graphics.TileMisc.EAST_BLANK].getHeight();
+			        		tileMisc[Globals.Graphics.TileMisc.SOUTH_BLANK] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.EAST_BLANK], 0, 0, tempWidth, tempHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.SOUTH_INVERT_BLANK] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.EAST_BLANK], 0, 0, tempWidth, tempHeight, RotateAndScale, false);
+			        		tempWidth = tileMisc[Globals.Graphics.TileMisc.EAST_BLANK].getWidth();
+			        		tempHeight = tileMisc[Globals.Graphics.TileMisc.EAST_BLANK].getHeight();
+			        		tileMisc[Globals.Graphics.TileMisc.WEST_BLANK] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.EAST_BLANK], 0, 0, tempWidth, tempHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.WEST_INVERT_BLANK] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.EAST_BLANK], 0, 0, tempWidth, tempHeight, RotateAndScale, false);
+			        		tempWidth = tileMisc[Globals.Graphics.TileMisc.EAST_BLANK].getWidth();
+			        		tempHeight = tileMisc[Globals.Graphics.TileMisc.EAST_BLANK].getHeight();
+			        		tileMisc[Globals.Graphics.TileMisc.NORTH_BLANK] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.EAST_BLANK], 0, 0, tempWidth, tempHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.NORTH_INVERT_BLANK] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.EAST_BLANK], 0, 0, tempWidth, tempHeight, RotateAndScale, false);
+			        		
+		        		}
+		        		
+		        		RotateAndScale.reset();
+		        		//RotateAndScale.setScale(0.5f, 0.5f);
+			        	RotateAndScale.preRotate(270.0f);
+			        	TileBMPsSouthRotated[i] = Bitmap.createBitmap(TileBMPs50PercentUser[i], 0, 0, TileBMPs50PercentUser[i].getWidth(), TileBMPs50PercentUser[i].getHeight(), RotateAndScale, false);
+		        		
+		        		RotateAndScale.reset();
+		        		//RotateAndScale.setScale(0.5f, 0.5f);
+			        	RotateAndScale.preRotate(180.0f);
+			        	TileBMPsWestRotated[i] = Bitmap.createBitmap(TileBMPs50PercentUser[i], 0, 0, TileBMPs50PercentUser[i].getWidth(), TileBMPs50PercentUser[i].getHeight(), RotateAndScale, false);
+	
+		        		RotateAndScale.reset();
+		        		//RotateAndScale.setScale(0.5f, 0.5f);
+			        	RotateAndScale.preRotate(90.0f);
+			        	TileBMPsNorthRotated[i] = Bitmap.createBitmap(TileBMPs50PercentUser[i], 0, 0, TileBMPs50PercentUser[i].getWidth(), TileBMPs50PercentUser[i].getHeight(), RotateAndScale, false);
+		        	}
+		        	
+		        	miniTileWidth = TileBMPsWestRotated[1].getWidth();
+		            miniTileHeight = TileBMPsWestRotated[1].getHeight();
+		            miniShellTopWidth = 0;//tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_TOP].getWidth();
+		            miniShellTopHeight = 0;//tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_TOP].getHeight();
+		            miniShellRightWidth = 0;//tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_RIGHT].getWidth();
+		            miniShellRightHeight = 0;//tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_RIGHT].getHeight();
+		            miniShellLeftWidth = 0;//tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_LEFT].getWidth();
+		            miniShellLeftHeight = 0;//tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_LEFT].getHeight();
+		            miniShellBottomWidth = 0;//tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_BOTTOM].getWidth();
+		            miniShellBottomHeight = 0;//tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_BOTTOM].getHeight();
+		            miniBlankTileWidth = tileMisc[Globals.Graphics.TileMisc.MINI_BLANK].getWidth();
+		            miniBlankTileHeight = tileMisc[Globals.Graphics.TileMisc.MINI_BLANK].getHeight();
+		            
+		            miscBitmaps[Globals.Graphics.MISC.CENTER] = BitmapFactory.decodeResource(res, R.drawable.center);
+		            miscBitmaps[Globals.Graphics.MISC.CENTER] = Bitmap.createScaledBitmap(miscBitmaps[Globals.Graphics.MISC.CENTER], (miniTileWidth*6)+(miniShellLeftWidth*6), (miniTileWidth*6)+(miniShellLeftWidth*6), true);
+        		}
+        		catch(Exception e){
+        			String WTFAmI = e.toString();
+        			Log.e("SakiView.loadTileBitmaps_Enlarged", WTFAmI);
+        		}
+        	}
+        	else{
+        		try{
+	        		tileMisc[Globals.Graphics.TileMisc.SHELL_TOP] = BitmapFactory.decodeResource(res, R.drawable.shell_top);
+		        	tileMisc[Globals.Graphics.TileMisc.SHELL_RIGHT] = BitmapFactory.decodeResource(res, R.drawable.shell_right);
+		        	tileMisc[Globals.Graphics.TileMisc.SHELL_BOTTOM] = BitmapFactory.decodeResource(res, R.drawable.shell_bottom);
+		        	tileMisc[Globals.Graphics.TileMisc.SHELL_LEFT] = BitmapFactory.decodeResource(res, R.drawable.shell_left);
+		        	tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_TOP] = BitmapFactory.decodeResource(res, R.drawable.shell_top_invert);
+		        	tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_RIGHT] = BitmapFactory.decodeResource(res, R.drawable.shell_right_invert);
+		        	tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_BOTTOM] = BitmapFactory.decodeResource(res, R.drawable.shell_bottom_invert);
+		        	tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_LEFT] = BitmapFactory.decodeResource(res, R.drawable.shell_left_invert);
+		        	tileMisc[Globals.Graphics.TileMisc.EAST_BLANK] = BitmapFactory.decodeResource(res, R.drawable.east_blank);
+		        	tileMisc[Globals.Graphics.TileMisc.SOUTH_BLANK] = BitmapFactory.decodeResource(res, R.drawable.south_blank);
+		        	tileMisc[Globals.Graphics.TileMisc.WEST_BLANK] = BitmapFactory.decodeResource(res, R.drawable.west_blank);
+		        	tileMisc[Globals.Graphics.TileMisc.NORTH_BLANK] = BitmapFactory.decodeResource(res, R.drawable.north_blank);
+		        	tileMisc[Globals.Graphics.TileMisc.EAST_INVERT_BLANK] = BitmapFactory.decodeResource(res, R.drawable.east_blank_invert);
+		        	tileMisc[Globals.Graphics.TileMisc.SOUTH_INVERT_BLANK] = BitmapFactory.decodeResource(res, R.drawable.south_blank_invert);
+		        	tileMisc[Globals.Graphics.TileMisc.WEST_INVERT_BLANK] = BitmapFactory.decodeResource(res, R.drawable.west_blank_invert);
+		        	tileMisc[Globals.Graphics.TileMisc.NORTH_INVERT_BLANK] = BitmapFactory.decodeResource(res, R.drawable.north_blank_invert);
+		        	
+		        	shellTopWidth = tileMisc[Globals.Graphics.TileMisc.SHELL_TOP].getWidth();
+		        	shellTopHeight = tileMisc[Globals.Graphics.TileMisc.SHELL_TOP].getHeight();
+		        	shellRightWidth = tileMisc[Globals.Graphics.TileMisc.SHELL_RIGHT].getWidth();
+		        	shellRightHeight = tileMisc[Globals.Graphics.TileMisc.SHELL_RIGHT].getHeight();
+		        	shellLeftWidth = tileMisc[Globals.Graphics.TileMisc.SHELL_LEFT].getWidth();
+		        	shellLeftHeight = tileMisc[Globals.Graphics.TileMisc.SHELL_LEFT].getHeight();
+		        	shellBottomWidth = tileMisc[Globals.Graphics.TileMisc.SHELL_BOTTOM].getWidth();
+		        	shellBottomHeight = tileMisc[Globals.Graphics.TileMisc.SHELL_BOTTOM].getHeight();
+		        	blankTileWidth = tileMisc[Globals.Graphics.TileMisc.EAST_BLANK].getWidth();
+		        	blankTileHeight = tileMisc[Globals.Graphics.TileMisc.EAST_BLANK].getHeight();
+		        	
+		        	//Initialize Bitmaps
+		            TileBMPs[0] = BitmapFactory.decodeResource(res, R.drawable.blank_simple);
+		            TileBMPs[1] = BitmapFactory.decodeResource(res, R.drawable.bam1_simple);
+		            TileBMPs[2] = BitmapFactory.decodeResource(res, R.drawable.bam2_simple);
+		            TileBMPs[3] = BitmapFactory.decodeResource(res, R.drawable.bam3_simple);
+		            TileBMPs[4] = BitmapFactory.decodeResource(res, R.drawable.bam4_simple);
+		            TileBMPs[5] = BitmapFactory.decodeResource(res, R.drawable.bam5_simple);
+		            TileBMPs[6] = BitmapFactory.decodeResource(res, R.drawable.bam6_simple);
+		            TileBMPs[7] = BitmapFactory.decodeResource(res, R.drawable.bam7_simple);
+		            TileBMPs[8] = BitmapFactory.decodeResource(res, R.drawable.bam8_simple);
+		            TileBMPs[9] = BitmapFactory.decodeResource(res, R.drawable.bam9_simple);
+		            
+		            TileBMPs[10] = BitmapFactory.decodeResource(res, R.drawable.pin1_simple);
+		            TileBMPs[11] = BitmapFactory.decodeResource(res, R.drawable.pin2_simple);
+		            TileBMPs[12] = BitmapFactory.decodeResource(res, R.drawable.pin3_simple);
+		            TileBMPs[13] = BitmapFactory.decodeResource(res, R.drawable.pin4_simple);
+		            TileBMPs[14] = BitmapFactory.decodeResource(res, R.drawable.pin5_simple);
+		            TileBMPs[15] = BitmapFactory.decodeResource(res, R.drawable.pin6_simple);
+		            TileBMPs[16] = BitmapFactory.decodeResource(res, R.drawable.pin7_simple);
+		            TileBMPs[17] = BitmapFactory.decodeResource(res, R.drawable.pin8_simple);
+		            TileBMPs[18] = BitmapFactory.decodeResource(res, R.drawable.pin9_simple);
+		            
+		            TileBMPs[19] = BitmapFactory.decodeResource(res, R.drawable.man1_simple);
+		            TileBMPs[20] = BitmapFactory.decodeResource(res, R.drawable.man2_simple);
+		            TileBMPs[21] = BitmapFactory.decodeResource(res, R.drawable.man3_simple);
+		            TileBMPs[22] = BitmapFactory.decodeResource(res, R.drawable.man4_simple);
+		            TileBMPs[23] = BitmapFactory.decodeResource(res, R.drawable.man5_simple);
+		            TileBMPs[24] = BitmapFactory.decodeResource(res, R.drawable.man6_simple);
+		            TileBMPs[25] = BitmapFactory.decodeResource(res, R.drawable.man7_simple);
+		            TileBMPs[26] = BitmapFactory.decodeResource(res, R.drawable.man8_simple);
+		            TileBMPs[27] = BitmapFactory.decodeResource(res, R.drawable.man9_simple);
+		            
+		            TileBMPs[28] = BitmapFactory.decodeResource(res, R.drawable.red_simple);
+		            TileBMPs[29] = BitmapFactory.decodeResource(res, R.drawable.white_simple);
+		            TileBMPs[30] = BitmapFactory.decodeResource(res, R.drawable.green_simple);
+		            
+		            TileBMPs[31] = BitmapFactory.decodeResource(res, R.drawable.east_simple);
+		            TileBMPs[32] = BitmapFactory.decodeResource(res, R.drawable.south_simple);
+		            TileBMPs[33] = BitmapFactory.decodeResource(res, R.drawable.west_simple);
+		            TileBMPs[34] = BitmapFactory.decodeResource(res, R.drawable.north_simple);
+		            
+		            TileBMPs[35] = BitmapFactory.decodeResource(res, R.drawable.bam5red_simple);
+		            TileBMPs[36] = BitmapFactory.decodeResource(res, R.drawable.pin5red_simple);
+		            TileBMPs[37] = BitmapFactory.decodeResource(res, R.drawable.man5red_simple);
+		            
+		            //Manually adjust size if there's a scaling issue
+		            if(TileBMPs[1].getWidth() != (shellTopWidth - shellLeftWidth - shellRightWidth) ||
+		               TileBMPs[1].getHeight() != shellLeftHeight){
+		            	int newWidth = (shellTopWidth - shellLeftWidth - shellRightWidth);
+		            	int newHeight = shellLeftHeight;
+		            	for(int i = 1; i < 38; i++){
+		            		TileBMPs[i] = Bitmap.createScaledBitmap(TileBMPs[i], newWidth, newHeight, false);
+		            	}
+		            }
+		            
+		            Matrix RotateAndScale = new Matrix();
+		            tileWidth = TileBMPs[1].getWidth();
+		            tileHeight = TileBMPs[1].getHeight();
+		            
+		        	for(int i = 0; i < 38; i++){
+		        		RotateAndScale.reset();
+		        		RotateAndScale.setScale(0.5f, 0.5f);
+			        	//RotateAndScale.preRotate(90.0f);
+		        		TileBMPs50PercentUser[i] = Bitmap.createBitmap(TileBMPs[i], 0, 0, tileWidth, tileHeight, RotateAndScale, false);
+		        		
+		        		if(i == 0){
+		        			tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_TOP] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_TOP], 0, 0, shellTopWidth, shellTopHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_RIGHT] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_RIGHT], 0, 0, shellRightWidth, shellRightHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_LEFT] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_LEFT], 0, 0, shellLeftWidth, shellLeftHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_BOTTOM] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_BOTTOM], 0, 0, shellBottomWidth, shellBottomHeight, RotateAndScale, false);
+			        		
+			        		tileMisc[Globals.Graphics.TileMisc.MINI_INVERT_SHELL_TOP] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_TOP], 0, 0, shellTopWidth, shellTopHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.MINI_INVERT_SHELL_RIGHT] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_RIGHT], 0, 0, shellRightWidth, shellRightHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.MINI_INVERT_SHELL_LEFT] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_LEFT], 0, 0, shellLeftWidth, shellLeftHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.MINI_INVERT_SHELL_BOTTOM] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_BOTTOM], 0, 0, shellBottomWidth, shellBottomHeight, RotateAndScale, false);
+			        		
+			        		tileMisc[Globals.Graphics.TileMisc.MINI_BLANK] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.EAST_BLANK], 0, 0, blankTileWidth, blankTileHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.MINI_INVERT_BLANK] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.EAST_INVERT_BLANK], 0, 0, blankTileWidth, blankTileHeight, RotateAndScale, false);
+			        		
+			        		int tempWidth = tileMisc[Globals.Graphics.TileMisc.SOUTH_BLANK].getWidth();
+			        		int tempHeight = tileMisc[Globals.Graphics.TileMisc.SOUTH_BLANK].getHeight();
+			        		tileMisc[Globals.Graphics.TileMisc.SOUTH_BLANK] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SOUTH_BLANK], 0, 0, tempWidth, tempHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.SOUTH_INVERT_BLANK] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SOUTH_INVERT_BLANK], 0, 0, tempWidth, tempHeight, RotateAndScale, false);
+			        		tempWidth = tileMisc[Globals.Graphics.TileMisc.WEST_BLANK].getWidth();
+			        		tempHeight = tileMisc[Globals.Graphics.TileMisc.WEST_BLANK].getHeight();
+			        		tileMisc[Globals.Graphics.TileMisc.WEST_BLANK] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.WEST_BLANK], 0, 0, tempWidth, tempHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.WEST_INVERT_BLANK] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.WEST_INVERT_BLANK], 0, 0, tempWidth, tempHeight, RotateAndScale, false);
+			        		tempWidth = tileMisc[Globals.Graphics.TileMisc.NORTH_BLANK].getWidth();
+			        		tempHeight = tileMisc[Globals.Graphics.TileMisc.NORTH_BLANK].getHeight();
+			        		tileMisc[Globals.Graphics.TileMisc.NORTH_BLANK] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.NORTH_BLANK], 0, 0, tempWidth, tempHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.NORTH_INVERT_BLANK] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.NORTH_INVERT_BLANK], 0, 0, tempWidth, tempHeight, RotateAndScale, false);
+			        		
+		        		}
+	
+		        		RotateAndScale.reset();
+		        		RotateAndScale.setScale(0.5f, 0.5f);
+			        	RotateAndScale.preRotate(270.0f);
+			        	TileBMPsSouthRotated[i] = Bitmap.createBitmap(TileBMPs[i], 0, 0, tileWidth, tileHeight, RotateAndScale, false);
+			        	
+			        	if(i==0){
+				        	tileMisc[Globals.Graphics.TileMisc.SOUTH_SHELL_TOP] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_TOP], 0, 0, shellTopWidth, shellTopHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.SOUTH_SHELL_RIGHT] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_RIGHT], 0, 0, shellRightWidth, shellRightHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.SOUTH_SHELL_LEFT] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_LEFT], 0, 0, shellLeftWidth, shellLeftHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.SOUTH_SHELL_BOTTOM] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_BOTTOM], 0, 0, shellBottomWidth, shellBottomHeight, RotateAndScale, false);
+			        		
+			        		tileMisc[Globals.Graphics.TileMisc.SOUTH_INVERT_SHELL_TOP] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_TOP], 0, 0, shellTopWidth, shellTopHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.SOUTH_INVERT_SHELL_RIGHT] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_RIGHT], 0, 0, shellRightWidth, shellRightHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.SOUTH_INVERT_SHELL_LEFT] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_LEFT], 0, 0, shellLeftWidth, shellLeftHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.SOUTH_INVERT_SHELL_BOTTOM] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_BOTTOM], 0, 0, shellBottomWidth, shellBottomHeight, RotateAndScale, false);
+			        	}
+		        		
+		        		RotateAndScale.reset();
+		        		RotateAndScale.setScale(0.5f, 0.5f);
+			        	RotateAndScale.preRotate(180.0f);
+			        	TileBMPsWestRotated[i] = Bitmap.createBitmap(TileBMPs[i], 0, 0, tileWidth, tileHeight, RotateAndScale, false);
+			        	
+			        	if(i==0){
+				        	tileMisc[Globals.Graphics.TileMisc.WEST_SHELL_TOP] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_TOP], 0, 0, shellTopWidth, shellTopHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.WEST_SHELL_RIGHT] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_RIGHT], 0, 0, shellRightWidth, shellRightHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.WEST_SHELL_LEFT] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_LEFT], 0, 0, shellLeftWidth, shellLeftHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.WEST_SHELL_BOTTOM] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_BOTTOM], 0, 0, shellBottomWidth, shellBottomHeight, RotateAndScale, false);
+			        		
+			        		tileMisc[Globals.Graphics.TileMisc.WEST_INVERT_SHELL_TOP] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_TOP], 0, 0, shellTopWidth, shellTopHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.WEST_INVERT_SHELL_RIGHT] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_RIGHT], 0, 0, shellRightWidth, shellRightHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.WEST_INVERT_SHELL_LEFT] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_LEFT], 0, 0, shellLeftWidth, shellLeftHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.WEST_INVERT_SHELL_BOTTOM] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_BOTTOM], 0, 0, shellBottomWidth, shellBottomHeight, RotateAndScale, false);
+			        	}
+		        		
+		        		RotateAndScale.reset();
+		        		RotateAndScale.setScale(0.5f, 0.5f);
+			        	RotateAndScale.preRotate(90.0f);
+			        	TileBMPsNorthRotated[i] = Bitmap.createBitmap(TileBMPs[i], 0, 0, tileWidth, tileHeight, RotateAndScale, false);
+			        	
+			        	if(i==0){
+				        	tileMisc[Globals.Graphics.TileMisc.NORTH_SHELL_TOP] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_TOP], 0, 0, shellTopWidth, shellTopHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.NORTH_SHELL_RIGHT] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_RIGHT], 0, 0, shellRightWidth, shellRightHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.NORTH_SHELL_LEFT] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_LEFT], 0, 0, shellLeftWidth, shellLeftHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.NORTH_SHELL_BOTTOM] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_BOTTOM], 0, 0, shellBottomWidth, shellBottomHeight, RotateAndScale, false);
+			        		
+			        		tileMisc[Globals.Graphics.TileMisc.NORTH_INVERT_SHELL_TOP] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_TOP], 0, 0, shellTopWidth, shellTopHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.NORTH_INVERT_SHELL_RIGHT] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_RIGHT], 0, 0, shellRightWidth, shellRightHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.NORTH_INVERT_SHELL_LEFT] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_LEFT], 0, 0, shellLeftWidth, shellLeftHeight, RotateAndScale, false);
+			        		tileMisc[Globals.Graphics.TileMisc.NORTH_INVERT_SHELL_BOTTOM] = Bitmap.createBitmap(tileMisc[Globals.Graphics.TileMisc.SHELL_INVERT_BOTTOM], 0, 0, shellBottomWidth, shellBottomHeight, RotateAndScale, false);
+			        	}
+		        	}
+		        	
+		        	miniTileWidth = TileBMPsWestRotated[1].getWidth();
+		            miniTileHeight = TileBMPsWestRotated[1].getHeight();
+		            miniShellTopWidth = tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_TOP].getWidth();
+		            miniShellTopHeight = tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_TOP].getHeight();
+		            miniShellRightWidth = tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_RIGHT].getWidth();
+		            miniShellRightHeight = tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_RIGHT].getHeight();
+		            miniShellLeftWidth = tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_LEFT].getWidth();
+		            miniShellLeftHeight = tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_LEFT].getHeight();
+		            miniShellBottomWidth = tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_BOTTOM].getWidth();
+		            miniShellBottomHeight = tileMisc[Globals.Graphics.TileMisc.MINI_SHELL_BOTTOM].getHeight();
+		            miniBlankTileWidth = tileMisc[Globals.Graphics.TileMisc.MINI_BLANK].getWidth();
+		            miniBlankTileHeight = tileMisc[Globals.Graphics.TileMisc.MINI_BLANK].getHeight();
+	
+		            miscBitmaps[Globals.Graphics.MISC.CENTER] = BitmapFactory.decodeResource(res, R.drawable.center);
+		            miscBitmaps[Globals.Graphics.MISC.CENTER] = Bitmap.createScaledBitmap(miscBitmaps[Globals.Graphics.MISC.CENTER], (miniTileWidth*6)+(miniShellLeftWidth*6), (miniTileWidth*6)+(miniShellLeftWidth*6), true);
+        		}
+        		catch(Exception e){
+        			String WTFAmI = e.toString();
+        			Log.e("SakiView.loadTileBitmaps", WTFAmI);
+        		}
+        	}
+        }
+        
         /**
          * Getters/Setters
          */
@@ -2070,6 +2825,13 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
             }
         }
         
+        public void setTileMode(boolean bEnlargeMode){
+        	if(bEnlargeTiles != bEnlargeMode){
+        		bEnlargeTiles = bEnlargeMode;
+        		loadTileBitmaps();
+        	}
+        }
+        
         public int getWidth(){
         	return mCanvasWidth;
         }
@@ -2084,6 +2846,7 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
     private SakiThread thread;
     private GestureDetector mGestureDetector;
     private OnTouchListener mTouchListener;
+    private OnKeyListener mKeyListener;
     
     /**
      * Pointers to other classes
@@ -2109,42 +2872,10 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
         
         //Handle all Touch Events
         mGestureDetector = new GestureDetector(context, new GestureDetector.SimpleOnGestureListener() {
-			public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
-					if(bNeedDiscardInput){
-						//These thresholds may need to be tweaked
-						/*if((velocityX < 25.0)&&(velocityX > -25.0)&&(velocityY < -30)){
-							int HandSize = pGameThread.mPlayers[0].myHand.activeHandSize;
-							float startPos = (thread.getWidth()-(29*HandSize))/2;
-							//Translate (x,y) to tile number
-							float y = e1.getY();
-							float startPosY = (thread.getHeight() - 33);
-							if(y > startPosY){
-								float x = e1.getX();
-								int tileIdx = ((int)(x - startPos))/29;
-								if(tileIdx <= HandSize){
-									bNeedDiscardInput = false;
-									pGameThread.sendDiscardMessage(tileIdx);
-								}
-							}
-						}*/
-						int tileIdx = thread.handleFling(e1.getX(), e1.getY(), velocityX, velocityY);
-						if(tileIdx != -1){
-							bNeedDiscardInput = false;
-							pGameThread.sendDiscardMessage(tileIdx);
-						}
-					}
-					return true;
-			}
 			public boolean onSingleTapConfirmed(MotionEvent e){
 				if(thread.bTitleScreen || thread.bScoreScreen || thread.bPlayerSelect || thread.bResultScreen){
 					if(thread.handleSingleTap(e.getX(), e.getY())){
-						//This should only trigger after the results screen
-						//We need to create a new game thread
-						//if(thread.bTitleScreen){
-						//	reinitGameThread();
-						//}
 						thread.triggerRedraw();
-						//return true;
 					}
 				}
 				else if(bNeedCallInput || bNeedDiscardInput){
@@ -2176,7 +2907,7 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 			}
 			
 			public boolean onDoubleTap(MotionEvent e){
-				if(bNeedDiscardInput){
+				if(bNeedDiscardInput && thread.bDoubleTap){
 					int tileIdx = thread.handleDiscard(e.getX(), e.getY());
 					if(tileIdx != -1){
 						bNeedDiscardInput = false;
@@ -2186,10 +2917,6 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 				return true;
 			}
 			
-			//public void onShowPress(MotionEvent e){
-			//	if(thread.handleTouch(e.getX(), e.getY()))
-			//		thread.triggerRedraw();
-			//}
         });
         
         mTouchListener = new OnTouchListener() {
@@ -2229,8 +2956,25 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
 			}
         	
         };
-
+        
         setOnTouchListener(mTouchListener);
+        
+        /*mKeyListener = new OnKeyListener() {
+        	
+			@Override
+			public boolean onKey(View v, int keyCode, KeyEvent event) {
+				// TODO Auto-generated method stub
+				if(keyCode == KeyEvent.KEYCODE_BACK && event.getRepeatCount() == 0 && event.getAction() == KeyEvent.ACTION_DOWN){
+        			int i = 1+1;
+        			return true;
+        		}
+				return false;
+			}
+        };*/
+
+        
+        
+        //this.setOnKeyListener(mKeyListener);
         
     }
 
@@ -2377,6 +3121,10 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
     /**
      * Interactions with the activity
      */
+    public boolean onBackButton(){
+    	return thread.handleBackButton();
+    }
+    
     public void finish(){
     	boolean retry = true;
     	while(retry){
@@ -2411,9 +3159,35 @@ public class SakiView extends SurfaceView implements SurfaceHolder.Callback {
     	Map<String, ?> prefMap = myPrefs.getAll();
     	//Log.i("Contains:", String.valueOf(myPrefs.contains(getContext().getString(R.string.pref_power_key))));
     	thread.bPowers = myPrefs.getBoolean(getContext().getString(R.string.pref_power_key), true);
-    	thread.bSlideToDiscard = myPrefs.getBoolean(getContext().getString(R.string.pref_slide_key), true);
+    	//thread.bSlideToDiscard = myPrefs.getBoolean(getContext().getString(R.string.pref_slide_key), true);
     	pGameThread.bPowers = thread.bPowers;
     	pGameThread.bKeepStats = myPrefs.getBoolean(getContext().getString(R.string.pref_save_stats), true);
+    	thread.bDebug = myPrefs.getBoolean(getContext().getString(R.string.pref_debug_mode), false);
+    	thread.setTileMode(myPrefs.getBoolean(getContext().getString(R.string.pref_enlarge_key), false));
+    	setLangauge(myPrefs.getBoolean(getContext().getString(R.string.pref_japanese), false));
+    	
+    	String discardMethod = myPrefs.getString(getContext().getString(R.string.discardList), "None");
+    	if(discardMethod.equalsIgnoreCase("Drag")){
+    		thread.bSlideToDiscard = false;
+    		thread.bDragToDiscard = true;
+    		thread.bDoubleTap = false;
+    	}
+    	else if(discardMethod.equalsIgnoreCase("Slide")){
+    		thread.bSlideToDiscard = true;
+    		thread.bDragToDiscard = false;
+    		thread.bDoubleTap = false;
+    	}
+    	else if(discardMethod.equalsIgnoreCase("Double Tap")){
+    		thread.bSlideToDiscard = false;
+    		thread.bDragToDiscard = false;
+    		thread.bDoubleTap = true;
+    	}
+    	else{//Something went wrong, default to Drag
+    		thread.bSlideToDiscard = false;
+    		thread.bDragToDiscard = true;
+    		thread.bDoubleTap = false;
+    	}
+    	
     	thread.triggerRedraw();
     }
     
