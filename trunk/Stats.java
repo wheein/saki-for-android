@@ -315,8 +315,10 @@ public class Stats {
 				return false;
 			
 			characterUsed[player2]++;
-			characterUsed[player3]++;
-			characterUsed[player4]++;
+			if(player3 != player2)
+				characterUsed[player3]++;
+			if((player2 != player4) && (player3 != player4))
+				characterUsed[player4]++;
 			totalGames += 3;
 			
 			bDirty = true;
@@ -549,3 +551,4 @@ public class Stats {
 		return bLoadedFromFile;
 	}
 }
+
