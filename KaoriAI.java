@@ -100,6 +100,7 @@ public class KaoriAI extends AI {
 	
 	protected void handlePowersAtDiscard(){
 		if(bLuckyMode && ShantanCount == 1){
+			pMyPlayer.powerTiles.clear();
 			for(int thisTile = 0; thisTile < pMyPlayer.myHand.tenpaiTiles.size(); thisTile++){
 				if(pGameThread.mTable.isLeftInWall(pMyPlayer.myHand.tenpaiTiles.get(thisTile))){
 					//pGameThread.mTable.reserveTile(pMyPlayer.myHand.tenpaiTiles.get(thisTile));
@@ -254,3 +255,4 @@ public class KaoriAI extends AI {
 		}
 	}
 }
+
