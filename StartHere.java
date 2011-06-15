@@ -1,13 +1,12 @@
 package mahjong.riichi;
 
-import java.util.ArrayList;
-
 import mahjong.riichi.SakiView.SakiThread;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.SharedPreferences.Editor;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.util.Log;
@@ -44,26 +43,16 @@ public class StartHere extends Activity/* implements View.OnTouchListener*/  {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.main);
         mSakiView = (SakiView)findViewById(R.id.SakiView);
-        //mSakiThread = mSakiView.getThread();
-        //mSakiThread.doStart();
-        //Globals.GameEngine.setView(mSakiView);
         try{
 	        mGameThread = new MainGameThread();
-	        
-	        //Give the threads references to each other
-	        //Maybe I could get around this using ThreadGroups
 	        mGameThread.setUI(mSakiView);
 	        mSakiView.setGameThread(mGameThread);
 	        mSakiView.setActivity(this);
-	        //mSakiView.setLangauge(true);
-	        //mSakiView.setDebug(true);
-	        //mSakiView.updatePreferences(PreferenceManager.getDefaultSharedPreferences(this));
         }
         catch(Exception e){
         	String WhatAmI = e.toString();
         	Log.e("StartHere", WhatAmI);
         }
-        //mGameThread.start();
         
     }
     
@@ -77,31 +66,51 @@ public class StartHere extends Activity/* implements View.OnTouchListener*/  {
     /* Handles item selections */
     public boolean onOptionsItemSelected(MenuItem item) {
         item.setChecked(!item.isChecked());
-        if(item.getItemId() == R.id.langauge)
-        	mSakiView.setLangauge(item.isChecked());
-        else if(item.getItemId() == R.id.debug)
-        	mSakiView.setDebug(item.isChecked());
-        else if(item.getItemId() == R.id.settings){
+        
+        if(item.getItemId() == R.id.settings){
         	startActivityForResult(new Intent(this, Settings.class), 123);
+            return true;
+        }
+        else if(item.getItemId() == R.id.changeLog){
+        	if(item.isChecked())
+        		item.setChecked(false);
+        	Intent intentForTextScreen = new Intent(this, ChangeLogScreen.class);
+        	intentForTextScreen.putExtra("Type", "ChangeLog");
+        	startActivity(intentForTextScreen);
+            return true;
+        }
+        else if(item.getItemId() == R.id.faq){
+        	if(item.isChecked())
+        		item.setChecked(false);
+        	Intent intentForTextScreen = new Intent(this, ChangeLogScreen.class);
+        	intentForTextScreen.putExtra("Type", "FAQ");
+        	startActivity(intentForTextScreen);
+            return true;
+        }
+        else if(item.getItemId() == R.id.powerInfo){
+        	if(item.isChecked()){
+        		item.setChecked(false);
+        		item.setCheckable(false);
+        	}
+        	Intent intentForTextScreen = new Intent(this, ChangeLogScreen.class);
+        	intentForTextScreen.putExtra("Type", "Powers");
+        	startActivity(intentForTextScreen);
+            return true;
+        }
+        else if(item.getItemId() == R.id.riichiInfo){
+        	Intent intentForWebScreen = new Intent(this, BrowserScreen.class);
+        	intentForWebScreen.putExtra("Type", "Rules");
+        	startActivity(intentForWebScreen);
+            return true;
+        }
+        else if(item.getItemId() == R.id.yakuList){
+        	Intent intentForWebScreen = new Intent(this, BrowserScreen.class);
+        	intentForWebScreen.putExtra("Type", "Yaku");
+        	startActivity(intentForWebScreen);
             return true;
         }
         return true;
     }  
-    
-    public boolean onPrepareOptionsMenu(Menu menu){
-    	boolean result = super.onPrepareOptionsMenu(menu);
-    	if(menu.getItem(0).isChecked())
-    		menu.getItem(0).setTitleCondensed("English");
-    	else
-        	menu.getItem(0).setTitleCondensed("Japanese");
-    	
-    	if(menu.getItem(1).isChecked())
-    		menu.getItem(1).setTitleCondensed("Debug Off");
-    	else
-        	menu.getItem(1).setTitleCondensed("Debug On");
-    	return result;
-
-    }
     
     protected void onActivityResult(int requestCode, int resultCode,
             Intent data) {
@@ -111,48 +120,34 @@ public class StartHere extends Activity/* implements View.OnTouchListener*/  {
         }
     }
     
-    
-    /*public boolean launchScoreScreen(int winnerCharID, int loserCharID1, int loserCharID2, int loserCharID3, int points, int fu, int han, int dora, int[] yaku){
-    	try{
-    		mGameThread.suspendThread();
-    		Intent i = new Intent(this, ScoreScreen.class);
-    		Bundle scoreScreenInfo = new Bundle();
-    		scoreScreenInfo.putInt("winnerCharID", winnerCharID);
-    		scoreScreenInfo.putInt("loserCharID1", loserCharID1);
-    		scoreScreenInfo.putInt("loserCharID2", loserCharID2);
-    		scoreScreenInfo.putInt("loserCharID3", loserCharID3);
-    		scoreScreenInfo.putInt("points", points);
-    		scoreScreenInfo.putInt("fu", fu);
-    		scoreScreenInfo.putInt("han", han);
-    		scoreScreenInfo.putInt("dora", dora);
-    		scoreScreenInfo.putIntArray("yaku", yaku);
-    		i.putExtras(scoreScreenInfo);
-    		startActivityForResult(i, Globals.SCORESCREEN);
+    @Override
+    public void onBackPressed() {
+    	if(!mSakiView.onBackButton()){
+    		new AlertDialog.Builder(this)
+            .setTitle("Quit?")
+            .setMessage("Do you want to exit the application?")
+            .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+
+                    //Stop the activity
+                	StartHere.this.finish();    
+                }
+
+            })
+            .setNegativeButton("No", null)
+            .show();
     	}
-    	catch(Exception e){
-    		mGameThread.resumeThread();
-    		String WTFAmI = e.toString();
-    		WTFAmI.length();
-    		return false;
-    	}
-    	return true;
-    }*/
-    /*
-    protected void onActivityResult(int requestCode, int resultCode, Intent data){
-    	super.onActivityResult(requestCode, resultCode, data);
-    	// Here We identify the subActivity we started 
-    	if(requestCode == Globals.SCORESCREEN){
-    		mGameThread.resumeThread();
-    	}
+    	return;
     }
-    */
+    
     public void onDestroy(){
     	mSakiView.finish();
     	super.onDestroy();
+    	this.finish();
+    	//This shouldn't technically be necessary but I'd rather be sure we are done
+    	android.os.Process.killProcess(android.os.Process.myPid());
     }
-    
-    //public void onResume(){
-    	//Globals.GameEngine.mainLoop();
-   // }
 	
 }
