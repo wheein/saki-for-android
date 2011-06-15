@@ -721,7 +721,7 @@ public class MainGameThread extends Thread implements Runnable{
 								if(isEast){
 									mPlayers[result].myAI.handlePowersAtWin();
 									
-									if(((points/100)%3) != 0)
+									if((points%300) != 0)
 										points += 100;
 									
 									int pointsPer = points/3;
@@ -735,10 +735,12 @@ public class MainGameThread extends Thread implements Runnable{
 								}
 								else{
 									mPlayers[result].myAI.handlePowersAtWin();
-									
 									int eastPointsPer = points/2;
+									if((eastPointsPer%100) != 0)
+										eastPointsPer = (points+100)/2;
+									
 									int pointsPer = eastPointsPer/2;
-									if(((eastPointsPer/100)%2) != 0)
+									if((pointsPer%100) != 0)
 										pointsPer = (eastPointsPer+100)/2;
 									
 									mPlayers[result].offsetScore(points);
@@ -840,7 +842,7 @@ public class MainGameThread extends Thread implements Runnable{
 			try{
 				int[] places = new int[] {1,2,3,4};
 				int[] scores = new int[] {mPlayers[0].score, mPlayers[1].score, mPlayers[2].score, mPlayers[3].score};
-				int highest = 0;;
+				int highest = -99999;;
 				int curUsed = -1;
 				for(int rank = 1; rank <= 4; rank++){
 					for(int i = 0; i < 4; i++){
@@ -850,13 +852,13 @@ public class MainGameThread extends Thread implements Runnable{
 						}
 					}
 					places[curUsed] = rank;
-					scores[curUsed] = 0;
+					scores[curUsed] = -99999;
 					highest = 0;
 				}
 				playerStats.updateForEnd(mPlayers[0].score, places[0]);
 				AIStats.updateForEnd(mPlayers[1].score, places[1], mPlayers[2].score, places[2], mPlayers[3].score, places[3]);
 				
-				if(bKeepStats){
+				if(bKeepStats && mRunning){//Don't save an aborted game
 					playerStats.saveToFile(false);
 					AIStats.saveToFile(true);
 				}
@@ -1007,6 +1009,14 @@ public class MainGameThread extends Thread implements Runnable{
 			}
 			else if(CharID == Globals.Characters.KAORI){
 				mPlayers[playerNum].myAI = new KaoriAI(playerNum);
+				mPlayers[playerNum].myAI.setGameThread(this);
+			}
+			else if(CharID == Globals.Characters.KANA){
+				mPlayers[playerNum].myAI = new KanaAI(playerNum);
+				mPlayers[playerNum].myAI.setGameThread(this);
+			}
+			else if(CharID == Globals.Characters.YUUKI){
+				mPlayers[playerNum].myAI = new YuukiAI(playerNum);
 				mPlayers[playerNum].myAI.setGameThread(this);
 			}
 			else{
