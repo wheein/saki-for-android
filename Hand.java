@@ -216,8 +216,13 @@ public class Hand extends Object{
 	
 	public Tile discard(int thisTile, boolean isRawTile){
 		if((thisTile == -1)||(activeHand[thisTile] == -1)){ //just throw out the new tile
-			Tile14 = -1;
-			return rawHand[Tile14];
+			Globals.myAssert(false);
+			thisTile = Tile14;
+			if(thisTile < 0){
+				thisTile = 0; //Something went very wrong, just make sure we don;t crash
+				isRawTile = false;
+			}
+				
 		}
 		
 		int rawPos = 0;
@@ -1817,7 +1822,7 @@ public class Hand extends Object{
 			if(selfDraw && !isOpen)
 				yaku[Globals.MENZEN] = 1;
 			
-			int wallCount = pMyPlayer.pMainGameThread.mTable.wallCount();
+			//int wallCount = pMyPlayer.pMainGameThread.mTable.wallCount();
 			if(pMyPlayer.pMainGameThread.mTable.wallCount() == 0){
 				if(selfDraw)
 					yaku[Globals.HAITEI] = 1;
