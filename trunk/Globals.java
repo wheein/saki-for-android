@@ -5,7 +5,7 @@ public class Globals {
 	//public static int SCORESCREEN = 1;
 	
 	//Others
-	public static String VERSION = "v0.2.1 Beta";
+	public static String VERSION = "v1.0.0 Release Candidate";
 	
 	public static int SIMPLE = 1;
 	public static int TERMINAL = 2;
@@ -276,7 +276,7 @@ public class Globals {
 			if((CharID == MOMOKA)||(CharID == YUMI)||(CharID == SATOMI)||(CharID == KAORI)||(CharID == MUTSUKI)){
 				if(bJapanese)
 					return "鶴賀学園";
-				return "Tsuruga Academy ";
+				return "Tsuruga Academy";
 			}
 			return "";
 		}
@@ -293,7 +293,7 @@ public class Globals {
 										"・お姉さんはプロです"
 										};
 				return new String[] {"- First year student, team anchor",
-									 "- Great at playing in person, but can not play online",
+									 "- Great at playing in person, but cannot play online",
 									 "- Loves Nodoka",
 									 "- Her estranged sister is a top-ranked mahjong player"
 									 };
@@ -306,7 +306,7 @@ public class Globals {
 										"・全国中学生麻雀大会個人戦優勝の経験"
 										};
 				return new String[] {"- First year student",
-									 "- National Middle School Individual Champion.",
+									 "- National Middle School Individual Champion",
 									 "- Always carries her penguin doll, Etopen",
 									 "- Her online handle is 'Nodocchi'"
 									 };
@@ -319,7 +319,7 @@ public class Globals {
 										""
 										};
 				return new String[] {"- First year student",
-									 "- Strong in the east round, but weak in south.",
+									 "- Strong in the east round, but weak in south",
 									 "- Derives her mahjong powers from eating tacos",
 									 "- Hates math"
 									 };
@@ -345,7 +345,7 @@ public class Globals {
 										""
 										};
 				return new String[] {"- Third year student",
-									 "- Student Congress President.",
+									 "- Student Congress President",
 									 "- Mahjong Club President",
 									 "- Likes to use hell waits"
 									 };
@@ -371,7 +371,7 @@ public class Globals {
 										"・左目の色はブラウン、右目はブルー"
 										};
 				return new String[] {"- Third year student",
-									 "- Mahjong club Captain",
+									 "- Mahjong Club Captain",
 									 "- Eyes are two different colors",
 									 ""
 									 };
@@ -693,10 +693,32 @@ public class Globals {
 	
 	public static class ChangeLog{
 		public static String[] FullLog = new String[]{
-		"v0.2.1 Beta - XX/XX/11",
-		"- Replace all Bitmap buttons with programmitically drawn ones",
+		"v1.0.0 Release Candidate - 06/28/11",
+		"New Features:",
+		"- Implemented Chankan",
+		"- Implemented Nagashi Mangan",
+		"- Added FAQ section",
+/*60*/	"- Added slide controls to the character select screen",
+		"- Added 'Romanji For Yaku' option",
+		"- Enabled 'Move to SD' functionality",
+		"AI Changes:",
+		"- Tweak the way the AI handles yakuhai, honitsu, chinitsu, and itsu",
+		"- Improve decision making when choosing discards in tenpai",
+		"- Improve decision making for self-kans",
+		"- AI will bail out of certain yaku (itsu, sanshoku doukou, doujun, shousangen, iipeikou) after it becomes impossible to complete",
+		"Other:",
+		"- Stop users from putting themselves in chombo when they call riichi",
+/*50*/	"- Complete overhual of how we sort hands (to hopefully clear up some of the rare exceptions/errors I've seen)",
+		"- Fix issue with AI players calling Kan when in riichi and glitching the game",
+		"- Fixed an issue where the game wouldn't close properly when quiting in the middle of a game",
+		"- Fixed issue where calling the last discard would end the hand before you could discard",
+		"- Fixed an issue where promoted kans wouldn't activate Saki's power correctly",
+		"- Fixed issue with scoring where ryanpeikou would always be treated as 7 pairs",
+		"",
+		"v0.2.1 Beta - 06/15/11",
+		"- Replace all Bitmap buttons with programmatically drawn ones",
 		"- Add FAQ, Change Log, Special Powers, Rules, & Yaku List under About/Help",
-		"- Replaced all tile images",
+/*40*/	"- Replaced all tile images",
 		"- Added 'Simplified Tiles' option",
 		"- Added 'Drag To Discard' option",
 		"- Moved 'Japanese' to the settings menu",
@@ -706,7 +728,7 @@ public class Globals {
 		"- Added new icon for the app",
 		"- Fixed issue with tsumo payments not being divided correctly",
 		"- Better handling the back button/exiting the app",
-		"- Draw red tiles on the score screen",
+/*30*/	"- Draw red tiles on the score screen",
 		"- Added powers for Yuuki and Kana",
 		"- Improved text scaling in a bunch of areas",
 		"",
@@ -716,7 +738,7 @@ public class Globals {
 		"- Result screen added",
 		"- Stat tracking and stat screen added (requires sd card)",
 		"- Redesigned character select screen",
-		"- Slide to discard added",
+/*20*/	"- Slide to discard added",
 		"- Added East-Only option",
 		"- A lightning bolt will show when someone's powers activate",
 		"- Game will actually go back to the title screen after a game is over",
@@ -726,7 +748,7 @@ public class Globals {
 		"",
 		"v0.1.1 Alpha - 05/11/11",
 		"- 4 Characters added and a character select screen",
-		"- Saki, Momoka, and Koromo have their respective super powers (see below)",
+/*10*/	"- Saki, Momoka, and Koromo have their respective super powers",
 		"- Fixed an issue where a player in riichi would sometimes be unable to call ron",
 		"- Fixed an issue where Chinitsu hands would sometimes cause the game to glitch",
 		"- The AI will now open up their hand for sanshoku doujun and doukou ",
@@ -735,10 +757,10 @@ public class Globals {
 		"- Characters will announce Noten/Tenpai after an exhaustive draw",
 		"- When asked to call a tile it will show you what tile you are being asked about in the center",
 		"",
-		"v0.1.0 Alpha - 04/25/11"
+/*1*/	"v0.1.0 Alpha - 04/25/11"
 		};
 		
-		public static int COUNT = 43;
+		public static int COUNT = 65;
 	}
 	
 	//Scoring Table
@@ -761,201 +783,279 @@ public class Globals {
 		}
 	}
 	
-	static public String yakuToString(int yaku, boolean japanese){
+	static public String yakuToString(int yaku, boolean japanese, boolean romanji){
 		if(yaku == PINFU){
 			if(japanese)
 				return "平和";
-			return "Pinfu";
+			else if(romanji)
+				return "Pinfu";
+			return "No-points hand";
 		}
 		if(yaku == TANYAO){
 			if(japanese)
 				return "断ヤオ九";
-			return "Tanyao";
+			else if(romanji)
+				return "Tanyao";
+			return "All Simples";
 		}
 		if(yaku == IIPEIKOU){
 			if(japanese)
 				return "一盃口";
-			return "Iipeikou";
+			else if(romanji)
+				return "Iipeikou";
+			return "Identical Sequences";
 		}
 		if(yaku == YAKUHAI){
 			if(japanese)
 				return "翻牌";
-			return "Yakuhai";
+			else if(romanji)
+				return "Yakuhai";
+			return "Wind/Dragon Pon";
 		}
 		if(yaku == SANSHOKUDOUJUN){
 			if(japanese)
 				return "三色同順";
-			return "Sanshoku Doujun";
+			else if(romanji)
+				return "Sanshoku Doujun";
+			return "Three Color Straight";
 		}
 		if(yaku == ITSU){
 			if(japanese)
 				return "一気通貫";
-			return "Itsu";
+			else if(romanji)
+				return "Itsu";
+			return "Straight";
 		}
 		if(yaku == CHANTA){
 			if(japanese)
 				return "全帯么";
-			return "Chanta";
+			else if(romanji)
+				return "Chanta";
+			return "Terminal/Honor in Every Set";
 		}
 		if(yaku == HONROUTOU){
 			if(japanese)
 				return "混老頭)";
-			return "Honroutou";
+			else if(romanji)
+				return "Honroutou";
+			return "All Terminals & Honors";
 		}
 		if(yaku == TOITOI){
 			if(japanese)
 				return "対々和";
-			return "Toitoi";
+			else if(romanji)
+				return "Toitoi";
+			return "All Pons";
 		}
 		if(yaku == SANANKOU){
 			if(japanese)
 				return "三暗刻";
-			return "San Ankou";
+			else if(romanji)
+				return "San Ankou";
+			return "Three Concealed Pons";
 		}
 		if(yaku == SANKANTSU){
 			if(japanese)
 				return "三槓子";
-			return "San Kantsu";
+			else if(romanji)
+				return "San Kantsu";
+			return "Three Kans";
 		}
 		if(yaku == SANSHOKUDOUKOU){
 			if(japanese)
 				return "三色同刻";
-			return "Sanshoku Doukou";
+			else if(romanji)
+				return "Sanshoku Doukou";
+			return "Three Color Pons";
 		}
 		if(yaku == CHIITOI){
 			if(japanese)
 				return "七対子";
-			return "Chiitoi";
+			else if(romanji)
+				return "Chiitoi";
+			return "Seven Pairs";
 		}
 		if(yaku == SHOUSANGEN){
 			if(japanese)
 				return "小三元";
-			return "Shousangen";
+			else if(romanji)
+				return "Shousangen";
+			return "Three Little Dragons";
 		}
 		if(yaku == HONITSU){
 			if(japanese)
 				return "混一色";
-			return "Honitsu";
+			else if(romanji)
+				return "Honitsu";
+			return "Half Flush";
 		}
 		if(yaku == JUNCHANTAYAO){
 			if(japanese)
 				return "純全帯么";
-			return "Junchantayao";
+			else if(romanji)
+				return "Junchantayao";
+			return "Terminal in Each Set";
 		}
 		if(yaku == RYANPEIKOU){
 			if(japanese)
 				return "二盃口";
-			return "Ryanpeikou";
+			else if(romanji)
+				return "Ryanpeikou";
+			return "Double Identical Sequences";
 		}
 		if(yaku == CHINITSU){
 			if(japanese)
 				return "清一色";
-			return "Chinitsu";
+			else if(romanji)
+				return "Chinitsu";
+			return "Flush";
 		}
 		if(yaku == MENZEN){
 			if(japanese)
 				return "門前清自模和";
-			return "Menzen Tsumo";
+			else if(romanji)
+				return "Menzen Tsumo";
+			return "Self Draw";
 		}
 		if(yaku == RIICHI){
 			if(japanese)
 				return "立直";
-			return "Riichi";
+			else if(romanji)
+				return "Riichi";
+			return "Ready Hand";
 		}
 		if(yaku == IPPATSU){
 			if(japanese)
 				return "一発";
-			return "Ippatsu";
+			else if(romanji)
+				return "Ippatsu";
+			return "One Shot";
 		}
 		if(yaku == DOUBLERIICHI){
 			if(japanese)
 				return "ダブルリーチ";
-			return "Double Riichi";
+			else if(romanji)
+				return "Double Riichi";
+			return "Double Ready Hand";
 		}
 		if(yaku == HAITEI){
 			if(japanese)
 				return "海底撈月";
-			return "Haitei Raoyue";
+			else if(romanji)
+				return "Haitei Raoyue";
+			return "Last Tile From Wall";
 		}
 		if(yaku == HOUTEI){
 			if(japanese)
 				return "河底撈魚";
-			return "Houtei Raoyui";
+			else if(romanji)
+				return "Houtei Raoyui";
+			return "Last Discard";
 		}
 		if(yaku == RINSHAN){
 			if(japanese)
 				return "嶺上開花";
-			return "Rinshan Kaihou";
+			else if(romanji)
+				return "Rinshan Kaihou";
+			return "Tsumo After Kan";
 		}
 		if(yaku == CHANKAN){
 			if(japanese)
 				return "搶槓";
-			return "Chankan";
+			else if(romanji)
+				return "Chankan";
+			return "Robbing a Kan";
 		}
 		if(yaku == NAGASHIMANGAN){
 			if(japanese)
 				return "流し満貫";
-			return "Nagashi Mangan";
+			else if(romanji)
+				return "Nagashi Mangan";
+			return "Terminal/Honor Discards";
 		}
 		if(yaku == KOKUSHUMUSOU){
 			if(japanese)
 				return "国士無双";
+			else if(romanji)
+				return "Kokushi Musou";
 			return "Thirteen Orphans";
 		}
 		if(yaku == DAISANGEN){
 			if(japanese)
 				return "大三元";
+			else if(romanji)
+				return "Daisangen";
 			return "Three Big Dragons";
 		}
 		if(yaku == SHOUSUUSHII){
 			if(japanese)
 				return "小四喜";
+			else if(romanji)
+				return "Shousuushii";
 			return "Four Little Winds";
 		}
 		if(yaku == DAISUUSHII){
 			if(japanese)
 				return "大四喜";
+			else if(romanji)
+				return "Daisuushii";
 			return "Four Big Winds";
 		}
 		if(yaku == CHUURENPOUTOU){
 			if(japanese)
 				return "九蓮宝燈";
+			else if(romanji)
+				return "Chuuren Poutou";
 			return "Nine Gates";
 		}
 		if(yaku == SUUANKOU){
 			if(japanese)
 				return "四暗刻";
+			else if(romanji)
+				return "Suu Ankou";
 			return "Four Concealed Pons";
 		}
 		if(yaku == RYUUIISOU){
 			if(japanese)
 				return "緑一色";
+			else if(romanji)
+				return "Ryuuiisou";
 			return "All Green";
 		}
 		if(yaku == SUUKANTSU){
 			if(japanese)
 				return "四槓子";
+			else if(romanji)
+				return "Suu Kantsu";
 			return "Four Kans";
 		}
 		if(yaku == TSUUIISOU){
 			if(japanese)
 				return "字一色";
+			else if(romanji)
+				return "Tsuuiisou";
 			return "All Honors";
 		}
 		if(yaku == CHINROUTOU){
 			if(japanese)
 				return "清老頭";
+			else if(romanji)
+				return "Chinroutou";
 			return "All Terminals";
 		}
 		if(yaku == TENHOU){
 			if(japanese)
 				return "天和";
+			else if(romanji)
+				return "Tenhou";
 			return "Blessing of Heaven";
 		}
 		if(yaku == CHIIHOU){
 			if(japanese)
 				return "地和";
-			return "Blessing Of Earth";
+			else if(romanji)
+				return "Chiihou";
+			return "Blessing of Earth";
 		}
 		return "";
 	}
