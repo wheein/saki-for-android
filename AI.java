@@ -4,11 +4,10 @@ import java.util.ArrayList;
 import java.util.Random;
 
 import android.util.Log;
+import android.util.Pair;
 
-/**Basic AI class.  In theory specialized AIs should be derived from this
- * 
- * Known Issues:
- * 		- A 7 pairs hand with a potential iipeikou will blow up the scoring calc
+/**
+ * Basic AI class.  In theory specialized AIs should be derived from this
  *
  */
 public class AI extends /*Handler*/Thread {
@@ -30,6 +29,7 @@ public class AI extends /*Handler*/Thread {
 	 * See: setupAwayFrom()
 	 */
 	protected int[] awayFrom;
+	protected int[] Test_awayFrom;
 	
 	/**
 	 * Connections (the name made more sense in the past >_>) is what will determine what 
@@ -41,6 +41,7 @@ public class AI extends /*Handler*/Thread {
 	 * 
 	 */
 	protected int[] Connections;
+	protected int[] Test_Connections;
 	
 	//Thread execution controls
 	private boolean mRunning;
@@ -53,8 +54,6 @@ public class AI extends /*Handler*/Thread {
 	 * Shantan/Tenpai Info
 	 */
 	public int ShantanCount;
-	//protected ArrayList<Integer> tenpaiTiles;
-	//ArrayList<Integer> UnusedTiles;
 	ArrayList<Set> optimalHand;
 	
 	/**
@@ -153,7 +152,8 @@ public class AI extends /*Handler*/Thread {
 	MainGameThread pGameThread;
 	Player pMyPlayer;
 	
-	/**We SHOULD be able to do this with messages but I'm having a lot of trouble with that
+	/**
+	 * We SHOULD be able to do this with messages but I'm having a lot of trouble with that
 	 * So we will used these to pass info back and forth.
 	 * Look into doing this properly in the future
 	 */
@@ -233,22 +233,30 @@ public class AI extends /*Handler*/Thread {
 			}
 			
 			//If we are in riichi we have to make sure we can actually do this
-			if(pMyPlayer.riichi){
+			//Treat Lock Mode/tenpai as riichi
+			if(pMyPlayer.riichi || (pMyPlayer.myHand.inTenpai && inLockMode)){
 				Globals.myAssert(false); //delete this, just a check to make sure this works
 				if(!optimalHand.isEmpty()){
+					boolean okToKan = true;
 					for(int setIter = 0; setIter < optimalHand.size(); setIter++){
 						Set thisSet = optimalHand.get(setIter);
-						if(thisSet.isComplete() && !thisSet.isChi()){
-							//it's a pon
-							if(thisSet.tiles[0] == tileToCall){
-								output = 1;
-								outputReady = true;
-								return;
+						if(thisSet.isComplete() && thisSet.isChi()){
+							//if it's part of a chi we can not call it
+							if(thisSet.tiles[0] == tileToCall || thisSet.tiles[1] == tileToCall || thisSet.tiles[2] == tileToCall){
+								okToKan = false;
+								break;
 							}
 						}
 					}
 					
-					//We didn't find anything
+					if(okToKan){
+						//We should be fine calling Kan
+						output = 1;
+						outputReady = true;
+						return;
+					}
+					
+					//There was a chi with the tile, we can't call kan
 					output = 0;
 					outputReady = true;
 					return;
@@ -262,6 +270,7 @@ public class AI extends /*Handler*/Thread {
 				}
 			}
 			
+			tileCounts = pMyPlayer.myHand.getTileCounts();
 			Integer primaryYaku = -1;
 			for(int i = 0; i < Globals.AIYAKUCOUNT; i++){
 				int yakuToCheck = priority[i];
@@ -361,7 +370,7 @@ public class AI extends /*Handler*/Thread {
 					hasChanged = false;
 				}
 				else if(hasChanged){
-					//We got into some kind of thread-locked siutaion
+					//We got into some kind of thread-locked situation
 					Globals.myAssert(false);
 					hasChanged = false;
 				}
@@ -377,16 +386,11 @@ public class AI extends /*Handler*/Thread {
 		//We aren't doing anything here, that's ok right?
 	}
 	
-	//Should only be used for the user controlled player
-	/*public void forceUpdate(){
-		ShantanCount = pMyPlayer.myHand.getShantenCount_TreeVersion(2, false);//getShantanCount(true);
-		setupAwayFrom();
-		pMyPlayer.myHand.setupTilesToCall();
-	}*/
-	
 	public void init(){
 		awayFrom = new int[] {14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14};
-		Connections = new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+		Test_awayFrom = new int[] {14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14};
+		Connections = new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+		Test_Connections = new int[] {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 		thresholds = new int[] {3, //Pinfu
 								3, //Tanyao
 								1, //Iipeikou
@@ -432,16 +436,7 @@ public class AI extends /*Handler*/Thread {
 										   0,0,0,0,0,0,0,0,0,
 										   0,0,0,0,
 										   0,0,0};//These are important for things like ShouSanGen and SanShokuDouKou
-		//tileCounts = new int[] {0,
-		//		   				0,0,0,0,0,0,0,0,0,
-		//		   				0,0,0,0,0,0,0,0,0,
-		//		   				0,0,0,0,0,0,0,0,0,
-		//		   				0,0,0,0,
-		//		   				0,0,0};
-		
-		//tilesWeCouldCall = new ArrayList<Integer>();
-		//tenpaiTiles = new ArrayList<Integer>();
-		//UnusedTiles = new ArrayList<Integer>();
+
 		tilesToUse = new int[] {0,0,0,0};
 		optimalHand = new ArrayList<Set>();
 		inBailMode = false;
@@ -489,7 +484,7 @@ public class AI extends /*Handler*/Thread {
 							break;
 					}
 					int[] discardCounts = pGameThread.mTable.getDiscardCounts(player);
-					for(int activeIdx = 0; activeIdx < pMyPlayer.myHand.activeHandSize; activeIdx++){
+					for(int activeIdx = 0; activeIdx < pMyPlayer.myHand.activeHandMap.size(); activeIdx++){
 						Tile thisTile = pMyPlayer.getActiveTileAt(activeIdx);
 						if(discardCounts[thisTile.rawNumber] > 0)
 							return activeIdx;
@@ -499,7 +494,7 @@ public class AI extends /*Handler*/Thread {
 				int[] discardCounts = pGameThread.mTable.getAllDiscardCounts(myID);
 				int highest = 0;
 				int bestIdx = -1;
-				for(int activeIdx = 0; activeIdx < pMyPlayer.myHand.activeHandSize; activeIdx++){
+				for(int activeIdx = 0; activeIdx < pMyPlayer.myHand.activeHandMap.size(); activeIdx++){
 					Tile thisTile = pMyPlayer.getActiveTileAt(activeIdx);
 					if(discardCounts[thisTile.rawNumber] > 0){
 						if(discardCounts[thisTile.rawNumber] > highest){
@@ -517,6 +512,9 @@ public class AI extends /*Handler*/Thread {
 			for(int i = 0; i < Globals.AIYAKUCOUNT; i++){
 				int yakuToCheck = priority[i];
 				if(awayFrom[yakuToCheck] <= thresholds[yakuToCheck]){
+					//Special case for honitsu, don't include it if chinitsu is already there
+					if(yakuToCheck == Globals.HONITSU && goingFor.contains(Globals.CHINITSU))
+						continue;
 					goingFor.add(yakuToCheck);
 					if(primaryYaku == -1)
 						primaryYaku = yakuToCheck;
@@ -524,6 +522,7 @@ public class AI extends /*Handler*/Thread {
 			}
 			
 			setupConnections(goingFor);
+			//setupTestConnections(goingFor);
 			
 			/**
 			 * If we can see people's hands we will play perfect defense
@@ -568,6 +567,7 @@ public class AI extends /*Handler*/Thread {
 			
 			if(inLockMode){
 				int i = 0;
+				int numberOfPairs = 0;
 				while(i < optimalHand.size()){
 					Set thisSet = optimalHand.get(i);
 					if(thisSet.size == 1){
@@ -575,22 +575,15 @@ public class AI extends /*Handler*/Thread {
 						if(!UnusedTiles.contains(thisSet.tiles[0]))
 							UnusedTiles.add(thisSet.tiles[0]);
 					}
-					/*else if(thisSet.size == 2){
-						PartialSets.add(thisSet);
+					else if(thisSet.isPair()){
+						numberOfPairs++;
 					}
-					else if(thisSet.size == 0){
-						//The idea here is to figure out if one of the discards will lead us to a furiten or an empty wait
-						int numberOfPairs = 0;
-						for(int thisPartial = 0; thisPartial < PartialSets.size(); thisPartial++){
-							if(PartialSets.get(thisPartial).isPair())
-								numberOfPairs++;
-						}
-						if(numberOfPairs == 0){
-							//One of the unused Tiles needs to be used for a pair
-							
-						}
-						
-					}*/
+					else if(thisSet.size == 0 && (i+1)!=optimalHand.size()){
+						//it's not 7 pairs
+						if(numberOfPairs > 0)
+							numberOfPairs = 2; //doesn't matter what it is as long as it's not 0 or 6
+					}
+					
 					i++;
 				}
 				//}
@@ -599,9 +592,196 @@ public class AI extends /*Handler*/Thread {
 					Globals.myAssert(false);
 				}
 				else{
-					//Ok, let's try and prevent furiten here
-					//int[] myDiscardCounts = pGameThread.mTable.getDiscardCounts(myID);
-					//int[] allDiscardCounts = pGameThread.mTable.getAllDiscardCounts();
+					
+					if(ShantanCount == 1){
+						/**
+						 * Trying something different now
+						 * We will assign a value to get potential discard based on what the tenpai tiles 
+						 * would be.  
+						 * 
+						 * Plus: No more ridiculous furitens/terrible waits
+						 * Minus: We aren't looking at potential yaku
+						 */
+						int[] discardCounts = pGameThread.mTable.getAllDiscardCounts(myID);
+						int[] myDiscardCounts = pGameThread.mTable.getDiscardCounts(myID);
+						int[] meldCounts = pGameThread.getMeldCounts();
+						i = 0;
+						int[] addToConnections = new int[UnusedTiles.size()];
+						ArrayList<Pair<Integer, Integer>> alreadySeenTiles = new ArrayList<Pair<Integer, Integer>>();
+						
+						if(UnusedTiles.size() > 1){ //If we only have one choice then this is stupid
+							int startAt = 0;
+							for(int thisSet = 0; thisSet < optimalHand.size(); thisSet++){
+								if(startAt == -1)
+									startAt = thisSet;
+								
+								//OK startAt -> thisSet is one optimal hand
+								if(optimalHand.get(thisSet).size == 0){
+									
+									boolean[] unusedTileForThisHand = new boolean[UnusedTiles.size()];
+									//We need to count the pairs first, f-ing pairs
+									int Pairs = 0;
+									for(int setNum = startAt; setNum < thisSet; setNum++){
+										Set tempSet = optimalHand.get(setNum);
+										if(tempSet.isPair())
+											Pairs++;
+										if(tempSet.size == 1){
+											//OK now figure out which of our unused tiles is in this hand
+											//If both then, again, this is stupid
+											int boolIdx = UnusedTiles.indexOf(tempSet.tiles[0]);
+											if(boolIdx >= 0)
+												unusedTileForThisHand[boolIdx] = true;
+										}
+									}
+									
+									ArrayList<Integer> localTenpaiTiles = new ArrayList<Integer>();
+									//Ok now that that nonsense is out of the way figure out the tenpai tiles for this hand
+									for(int setNum = startAt; setNum < thisSet; setNum++){
+										Set tempSet = optimalHand.get(setNum);
+										if(tempSet.size == 1 && (Pairs == 0 || Pairs >= 6))
+											localTenpaiTiles.add(tempSet.tiles[0]);
+										if((tempSet.size == 2)&&(Pairs < 6)){
+											if(tempSet.tiles[0] == tempSet.tiles[1] && Pairs > 1)
+												localTenpaiTiles.add(tempSet.tiles[0]);
+											else if(tempSet.tiles[0] != tempSet.tiles[1]){
+												if(tempSet.tiles[0]+1 == tempSet.tiles[1]){
+													if(Tile.convertRawToRelative(tempSet.tiles[0])>1)
+														localTenpaiTiles.add(tempSet.tiles[0]-1);
+													if(Tile.convertRawToRelative(tempSet.tiles[1])<9)
+														localTenpaiTiles.add(tempSet.tiles[1]+1);
+												}
+												else{
+													localTenpaiTiles.add(tempSet.tiles[0]+1);
+												}
+											}
+										}
+									}
+									
+									//Special case for 7 pairs....it really is a stupid hand
+									if(Pairs == 6){
+										for(int thisTile = 0; thisTile < UnusedTiles.size(); thisTile++){
+											if(tileCounts[UnusedTiles.get(thisTile)] == 3)
+												addToConnections[thisTile] += 99;
+										}
+									}
+									int giveMeSomeWhereToPutABreak = 1;
+									boolean bPairWaits = true;
+									for(int boolIter = 0; boolIter < UnusedTiles.size(); boolIter++){
+										if(!unusedTileForThisHand[boolIter]){
+											bPairWaits = false;
+											break;
+										}
+									}
+									if(bPairWaits){
+										for(int boolIter = 0; boolIter < UnusedTiles.size(); boolIter++){
+											//The values here have to be opposite
+											//Normally if we discard a tile it will put us in furiten, here keeping it will
+											int rawNum = UnusedTiles.get(boolIter);
+											int tilesLeft = -(4 - tileCounts[rawNum] - discardCounts[rawNum] - meldCounts[rawNum]);
+											if(myDiscardCounts[rawNum] > 0)
+												tilesLeft = 25;
+											if(!alreadySeenTiles.contains(new Pair<Integer, Integer>(boolIter, rawNum))){
+												alreadySeenTiles.add(new Pair<Integer, Integer>(boolIter, rawNum));
+												addToConnections[boolIter] += tilesLeft;
+											}
+										}
+									}
+									else{
+										for(int thisTile = 0; thisTile < localTenpaiTiles.size(); thisTile++){
+											int rawNum = localTenpaiTiles.get(thisTile);
+											int tilesLeft = 4 - tileCounts[rawNum] - discardCounts[rawNum] - meldCounts[rawNum];
+											if(myDiscardCounts[rawNum] > 0)
+												tilesLeft = -25;
+											for(int boolIter = 0; boolIter < UnusedTiles.size(); boolIter++){
+												if(unusedTileForThisHand[boolIter]){
+													if(!alreadySeenTiles.contains(new Pair<Integer, Integer>(boolIter, rawNum))){
+														alreadySeenTiles.add(new Pair<Integer, Integer>(boolIter, rawNum));
+														addToConnections[boolIter] += tilesLeft;
+													}
+												}
+											}
+										}
+									}
+									startAt = -1;
+								}
+							}
+							//Delete this and use addToConnections
+							Globals.myAssert(false);
+							//Consider doubling these up =/ 
+							//I think this will have minimal effect, besides in furitens.
+							//But I also think that may be ok.  The difference between 3 and 4 available tiles really isn't a big deal
+							for(int thisTile = 0; thisTile < pMyPlayer.myHand.activeHandMap.size(); thisTile++){
+								ActiveHandPair thisPair = pMyPlayer.myHand.activeHandMap.get(thisTile);
+								Tile tempTile = pMyPlayer.myHand.rawHand[thisPair.rawHandIdx];
+								int unusedTileIdx = UnusedTiles.indexOf(tempTile.rawNumber);
+								if(unusedTileIdx != -1){ //I this this should be negative
+									Connections[thisTile] -= addToConnections[unusedTileIdx];
+								}
+							}
+						}
+						
+						/*
+						while(i < optimalHand.size()){
+							Set thisSet = optimalHand.get(i);
+							if(thisSet.size == 1){
+								//Unused Tile
+								if(!UnusedTiles.contains(thisSet.tiles[0]))
+									UnusedTiles.add(thisSet.tiles[0]);
+							}
+							else if(thisSet.isPair()){
+								numberOfPairs++;
+							}
+							else if(thisSet.size == 0 && (i+1)!=optimalHand.size()){
+								//it's not 7 pairs
+								if(numberOfPairs > 0)
+									numberOfPairs = 2; //doesn't matter what it is as long as it's not 0 or 6
+							}
+							
+							i++;
+						}
+						
+						if(numberOfPairs == 6){ //does this need to be >= ?
+							//First make sure we don't have a pon...if we have 2 pons, then well we're fucked, but odds are that we would have switched to toi toi at that point
+							for(int thisSet = 0; thisSet < optimalHand.size(); thisSet++){
+								Set tempSet = optimalHand.get(thisSet);
+								if(tempSet.isPair() && UnusedTiles.contains(tempSet.tiles[0])){
+									int rawIdx = pMyPlayer.myHand.getFirstTile(tempSet.tiles[0]);
+									int activeHandIdx = pMyPlayer.myHand.rawToActiveIdx(rawIdx);
+									return activeHandIdx;
+								}
+							}
+						}
+						
+						//if we have a 7 pairs hand and the above did not return then it should flow into here
+						if(numberOfPairs == 0 || numberOfPairs == 6){
+							//In even case we must pick a single tile to wait for a pair
+							//int[] myDiscardCounts = pGameThread.mTable.getDiscardCounts(myID);
+							//First things first lets avoid furiten
+							if(UnusedTiles.size() > 0){
+								for(int thisTile = 0; thisTile < UnusedTiles.size(); thisTile++){
+									if(myDiscardCounts[UnusedTiles.get(thisTile)] > 0){
+										//found one return it
+										int rawIdx = pMyPlayer.myHand.getFirstTile(UnusedTiles.get(thisTile));
+										int activeHandIdx = pMyPlayer.myHand.rawToActiveIdx(rawIdx);
+										return activeHandIdx;
+									}
+								}
+								
+								int[] theRestDiscardCounts = pGameThread.mTable.getAllDiscardCounts(myID);
+								int lowestCount = theRestDiscardCounts[UnusedTiles.get(0)];
+								int lowestTile = UnusedTiles.get(0);
+								for(int thisTile = 1; thisTile < UnusedTiles.size(); thisTile++){
+									if(theRestDiscardCounts[UnusedTiles.get(thisTile)] < lowestCount){
+										lowestCount = theRestDiscardCounts[UnusedTiles.get(thisTile)];
+										lowestTile = UnusedTiles.get(thisTile);
+									}
+								}
+								int rawIdx = pMyPlayer.myHand.getFirstTile(lowestTile);
+								int activeHandIdx = pMyPlayer.myHand.rawToActiveIdx(rawIdx);
+								return activeHandIdx;
+							}
+						}*/
+					}
 					for(i = 0; i < UnusedTiles.size(); i++){
 						int thisTile = UnusedTiles.get(i);
 						if(thisTile == -1){
@@ -610,7 +790,8 @@ public class AI extends /*Handler*/Thread {
 						for(int rawIdx = pMyPlayer.myHand.getFirstTile(thisTile); rawIdx != -1; rawIdx = pMyPlayer.myHand.getNextTile(thisTile, rawIdx)){
 							int activeHandIdx = pMyPlayer.myHand.rawToActiveIdx(rawIdx);
 							
-							//Another special case to try and cut down on furitens
+							if(activeHandIdx < 0)
+								continue; //Something went wrong =( 
 
 							if(Connections[activeHandIdx] < lowest){
 								idx = activeHandIdx;//pMyPlayer.myHand.activeHand[i]; 
@@ -648,7 +829,7 @@ public class AI extends /*Handler*/Thread {
 			}
 			
 			int ignorePairCount = 2;
-			for(int i = 0; i < pMyPlayer.myHand.activeHandSize; i++){
+			for(int i = 0; i < pMyPlayer.myHand.activeHandMap.size(); i++){
 				if(ignorePair > 0){
 					if(ignorePair == pMyPlayer.myHand.getRawTileAt(i).rawNumber){
 						if(ignorePairCount > 0){
@@ -661,19 +842,19 @@ public class AI extends /*Handler*/Thread {
 					idx = i;//pMyPlayer.myHand.activeHand[i]; 
 					lowest = Connections[i];
 				}
-				if(Connections[i] == lowest){
+				else if(Connections[i] == lowest){
 					int rand = randGenerator.nextInt(2);
 					if(rand == 2){
 						idx = i;//pMyPlayer.myHand.activeHand[i]; 
 						lowest = Connections[i];
 					}
 				}
-				if(primaryYaku == Globals.CHIITOI){
-					if(tileCounts[pMyPlayer.myHand.getRawTileAt(i).rawNumber] == 3){
-						idx = i;//pMyPlayer.myHand.activeHand[i]; 
-						lowest = -99;;
-					}
-				}
+				//if(primaryYaku == Globals.CHIITOI){
+				//	if(tileCounts[pMyPlayer.myHand.getRawTileAt(i).rawNumber] == 3){
+				//		idx = i;//pMyPlayer.myHand.activeHand[i]; 
+				//		lowest = -99;;
+				//	}
+				//}
 			}
 			
 			Globals.myAssert(idx >= 0);
@@ -743,7 +924,7 @@ public class AI extends /*Handler*/Thread {
 					return Globals.CMD.PON;
 				if(kan)
 					return Globals.CMD.KAN;
-				if(chi){
+				/*if(chi){
 					int[] tileCounts = pMyPlayer.myHand.getTileCounts();
 					if(tileCounts[lastDiscard.rawNumber] == 0){
 						if(Tile.convertRawToSuit(lastDiscard.rawNumber+1) == lastDiscard.getSuit()){
@@ -772,26 +953,26 @@ public class AI extends /*Handler*/Thread {
 							}
 						}
 					}
-				}
+				}*/
 			}
 
 			if(primaryYaku != -1){
 				int[] discardCounts = pGameThread.mTable.getAllDiscardCounts(myID);
 				if(primaryYaku == Globals.SHOUSANGEN){
 					if(lastDiscard.getSuit() == Globals.Suits.SANGEN){
-						int counter = 0;
+						/*int counter = 0;
 						int tileCounter = 0;
 						while(pMyPlayer.myHand.suits[Globals.Suits.SANGEN][counter] != -1){
 							Tile thisTile = pMyPlayer.myHand.getRawTileAt(pMyPlayer.myHand.suits[Globals.Suits.SANGEN][counter]);
 							if(thisTile.equals(lastDiscard))
 								tilesToUse[tileCounter++] = pMyPlayer.myHand.suits[Globals.Suits.SANGEN][counter];
 							counter++;
-						}
+						}*/
 						if(kan){
 							//pMyPlayer.myHand.meld(lastDiscard, tiles[0], tiles[1], tiles[2]);
 							return Globals.CMD.KAN;
 						}
-						else{
+						if(pon){
 							//pMyPlayer.myHand.meld(lastDiscard, tiles[0], tiles[1], -1);
 							return Globals.CMD.PON;
 						}
@@ -816,7 +997,7 @@ public class AI extends /*Handler*/Thread {
 				}
 				else if(primaryYaku == Globals.YAKUHAI){
 					if(lastDiscard.getType() == Globals.HONOR){
-						int counter = 0;
+						/*int counter = 0;
 						int tileCounter = 0;
 						for(int thisSuit = Globals.Suits.SANGEN; thisSuit <= Globals.Suits.KAZE; thisSuit++){
 							counter = 0;
@@ -827,12 +1008,12 @@ public class AI extends /*Handler*/Thread {
 									tilesToUse[tileCounter++] = pMyPlayer.myHand.suits[thisSuit][counter];
 								counter++;
 							}
-						}
+						}*/
 						if(kan){
 							//pMyPlayer.myHand.meld(lastDiscard, tiles[0], tiles[1], tiles[2]);
 							return Globals.CMD.KAN;
 						}
-						else{
+						if(pon){
 							//pMyPlayer.myHand.meld(lastDiscard, tiles[0], tiles[1], -1);
 							return Globals.CMD.PON;
 						}
@@ -1328,6 +1509,7 @@ public class AI extends /*Handler*/Thread {
 		int singleWaitWeight = -1; //there is only 1 tile that could complete
 		int[] discardCounts = pGameThread.mTable.getAllDiscardCounts();
 		int[] meldCounts = pGameThread.getMeldCounts();
+		int[] tileCounts = pMyPlayer.myHand.getTileCounts();
 		int[] localTileWeights = new int[] {0,
 											0,0,0,0,0,0,0,0,0,
 				   							0,0,0,0,0,0,0,0,0,
@@ -1399,6 +1581,34 @@ public class AI extends /*Handler*/Thread {
 				}
 			}
 			else if(yaku == Globals.YAKUHAI){
+				for(int thisTile = 28; thisTile <= Tile.LAST_TILE; thisTile++){
+					if(Tile.convertRawToSuit(thisTile) == Globals.Suits.SANGEN){
+						if(tileCounts[thisTile] >= 2){
+							localTileWeights[thisTile] += Math.round(10 * scaler);
+							localTileWeightCounts[thisTile] = 3;
+						}
+						else{
+							localTileWeights[thisTile] += Math.round(3 * scaler);
+							localTileWeightCounts[thisTile] = 3;
+						}
+					}
+					else{
+						int rndWind = Tile.convertWindToRaw(pGameThread.curWind);
+						int myWind = Tile.convertWindToRaw(pMyPlayer.currentWind);
+						int tileWind = Tile.convertRawToWind(thisTile);
+						if(rndWind == tileWind || myWind == tileWind){
+							if(tileCounts[thisTile] >= 2){
+								localTileWeights[thisTile] += Math.round(10 * scaler);
+								localTileWeightCounts[thisTile] = 3;
+							}
+							else{
+								localTileWeights[thisTile] += Math.round(3 * scaler);
+								localTileWeightCounts[thisTile] = 3;
+							}
+						}
+					}
+				}
+				/*
 				individualTileWeights[28] += Math.round(10 * scaler);
 				individualTileWeights[29] += Math.round(10 * scaler);
 				individualTileWeights[30] += Math.round(10 * scaler);
@@ -1408,6 +1618,7 @@ public class AI extends /*Handler*/Thread {
 					individualTileWeights[rndWind] += Math.round(10 * scaler);
 				if(myWind > 0)
 					individualTileWeights[myWind] += Math.round(10 * scaler);
+					*/
 			}
 			else if(yaku == Globals.SANSHOKUDOUJUN){
 				for(int j = 1; j < 35; j++){
@@ -1421,10 +1632,23 @@ public class AI extends /*Handler*/Thread {
 				}
 			}
 			else if(yaku == Globals.ITSU){
+				for(int j = 1; j < Globals.Suits.SANGEN; j++){
+					if(individualSuitValue[j] > 0){
+						int firstTile = 1+((j-1)*9);
+						for(int thisTile = firstTile; thisTile < (firstTile+9); thisTile++){
+							localTileWeights[thisTile] += Math.round(10 * scaler);
+							if(localTileWeightCounts[thisTile] < 1)
+								localTileWeightCounts[thisTile] = 1;
+						}
+						//individualSuitValue[j] += Math.round(10 * scaler);	
+					}
+				}
+				/*
 				for(int j = 1; j <= Globals.Suits.KAZE; j++){
 					if(individualSuitValue[j] > 0)
 						individualSuitValue[j] += Math.round(10 * scaler);	
 				}
+				*/
 			}
 			else if(yaku == Globals.CHANTA){
 				terminalWeight += Math.round(10 * scaler);
@@ -1553,7 +1777,9 @@ public class AI extends /*Handler*/Thread {
 					else
 						individualSuitValue[j] += Math.round(-10 * scaler);	
 				}
-				
+				ourWindWeight += Math.round(10 * scaler);
+				otherWindWeight += Math.round(5 * scaler);
+				dragonWeight += Math.round(10 * scaler);
 			}
 			else if(yaku == Globals.JUNCHANTAYAO){
 				terminalWeight += Math.round(10 * scaler);
@@ -1588,7 +1814,7 @@ public class AI extends /*Handler*/Thread {
 					else{
 						//We are giving winds/dragons a slight edge so that we can fall back to honitsu
 						if(j >= Globals.Suits.SANGEN)
-							individualSuitValue[j] += Math.round(-6 * scaler);	
+							individualSuitValue[j] += Math.round(-5 * scaler);	
 						else
 							individualSuitValue[j] += Math.round(-10 * scaler);	
 					}
@@ -1596,7 +1822,7 @@ public class AI extends /*Handler*/Thread {
 			}
 		}
 		try{
-			int[] tileCounts = pMyPlayer.myHand.getTileCounts();
+			//int[] tileCounts = pMyPlayer.myHand.getTileCounts();
 			int[] unchangedTileCounts = pMyPlayer.myHand.getTileCounts();
 			for(int thisTile = Tile.BAMBOO_START; thisTile <= Tile.LAST_TILE; thisTile++){
 				if(tileCounts[thisTile] <= 0)
@@ -1843,6 +2069,598 @@ public class AI extends /*Handler*/Thread {
 		
 	}
 	
+	public void setupTestConnections(ArrayList<Integer> goingFor){
+		//Integer[][] pSuits = pMyPlayer.myHand.suits;
+		//This will make it easier for any later passes
+		//int[] suitSize = {0,0,0,0,0,0};
+		
+		/**
+		 * We will rank the tiles based on these values, the yaku we are going for will affect these
+		 * 
+		 * Values will be added, so 0 is neutral, + will make us more likely to keep it
+		 * and likewise - will make it more likely to be released
+		 * 
+		 * For the time being we are going to use +-10 as a standard modifier
+		 * 
+		 * In theory we could let users play with these to tweak the AI
+		 */
+		int terminalWeight = 0;
+		int simpleWeight = 0;
+		int ourWindWeight = 1;
+		int otherWindWeight = -1;
+		int dragonWeight = 1;
+		int doraWeight = 1;
+		int pairWeight = 2;
+		int twoSidedWeight = 2;
+		int oneSidedWeight = 1;
+		int ponWeight = 5;
+		int chiWeight = 5;
+		int kanWeight = 5;
+		int emptyWaitWeight = -5; //ie what we need to complete this set is not available
+		int singleWaitWeight = -1; //there is only 1 tile that could complete
+		int[] discardCounts = pGameThread.mTable.getAllDiscardCounts();
+		int[] meldCounts = pGameThread.getMeldCounts();
+		int[] localTileWeights = new int[] {0,
+											0,0,0,0,0,0,0,0,0,
+				   							0,0,0,0,0,0,0,0,0,
+				   							0,0,0,0,0,0,0,0,0,
+				   							0,0,0,0,
+				   							0,0,0}; 
+		int[] localTileWeightCounts = new int[] {0,
+												 0,0,0,0,0,0,0,0,0,
+												 0,0,0,0,0,0,0,0,0,
+												 0,0,0,0,0,0,0,0,0,
+												 0,0,0,0,
+												 0,0,0}; 
+		
+		int[] tileCounts = pMyPlayer.myHand.getTileCounts();
+		boolean bDisableSuitBonus = true;
+		/**
+		 * OK we are going to try this:
+		 * We will scale the values by priority
+		 * 
+		 * We will ignore 1's
+		 * 
+		 * Ex. Highest priority Yaku gets the full value
+		 * 		2nd Highest will get 1/2
+		 * 		3rd 1/3 and so on.
+		 * 
+		 * We still need to sit down with a pencil and paper and work out the exact 
+		 * values we want for these
+		 */
+		for(int i = 0; i < goingFor.size(); i++){
+			double scaler = 1.0/((double)(i+1));
+			int yaku = goingFor.get(i);
+			if(yaku == Globals.PINFU){
+				terminalWeight += 0;
+				simpleWeight += 1;
+				ourWindWeight += Math.round(-10 * scaler);
+				otherWindWeight += -1;
+				dragonWeight += Math.round(-10 * scaler);
+				doraWeight += 0;
+				pairWeight += 1;
+				twoSidedWeight += Math.round(5 * scaler);
+				oneSidedWeight += Math.round(2 * scaler);
+				ponWeight += Math.round(-10 * scaler);
+				chiWeight += Math.round(10 * scaler);
+				kanWeight += Math.round(-10 * scaler);
+				emptyWaitWeight += 0; 
+				singleWaitWeight += 0;
+			}
+			else if(yaku == Globals.TANYAO){
+				terminalWeight += Math.round(-10 * scaler);
+				simpleWeight += Math.round(10 * scaler);
+				ourWindWeight += Math.round(-10 * scaler);
+				otherWindWeight += Math.round(-10 * scaler);
+				dragonWeight += Math.round(-10 * scaler);
+				doraWeight += 0;
+				pairWeight += 0;
+				twoSidedWeight += 0;
+				oneSidedWeight += 0;
+				ponWeight += 0;
+				chiWeight += 0;
+				kanWeight += 0;
+				emptyWaitWeight += 0; 
+				singleWaitWeight += 0;
+			}
+			else if(yaku == Globals.IIPEIKOU){
+				for(int j = 1; j < 35; j++){
+					if((individualTileWeights[j] & IIPEIKOUWEIGHT) == IIPEIKOUWEIGHT){
+						localTileWeights[j] += Math.round(10 * scaler);
+						if(localTileWeightCounts[j] < 2)
+							localTileWeightCounts[j] = 2;
+					}
+				}
+			}
+			else if(yaku == Globals.YAKUHAI){
+				//Changed
+				for(int thisTile = 28; thisTile <= Tile.LAST_TILE; thisTile++){
+					if(Tile.convertRawToSuit(thisTile) == Globals.Suits.SANGEN){
+						if(tileCounts[thisTile] >= 2){
+							localTileWeights[thisTile] += Math.round(10 * scaler);
+							localTileWeightCounts[thisTile] = 3;
+						}
+						else{
+							localTileWeights[thisTile] += Math.round(3 * scaler);
+							localTileWeightCounts[thisTile] = 3;
+						}
+					}
+					else{
+						int rndWind = Tile.convertWindToRaw(pGameThread.curWind);
+						int myWind = Tile.convertWindToRaw(pMyPlayer.currentWind);
+						int tileWind = Tile.convertRawToWind(thisTile);
+						if(rndWind == tileWind || myWind == tileWind){
+							if(tileCounts[thisTile] >= 2){
+								localTileWeights[thisTile] += Math.round(10 * scaler);
+								localTileWeightCounts[thisTile] = 3;
+							}
+							else{
+								localTileWeights[thisTile] += Math.round(3 * scaler);
+								localTileWeightCounts[thisTile] = 3;
+							}
+						}
+					}
+				}
+				/*
+				individualTileWeights[28] += Math.round(10 * scaler);
+				individualTileWeights[29] += Math.round(10 * scaler);
+				individualTileWeights[30] += Math.round(10 * scaler);
+				int rndWind = Tile.convertWindToRaw(pGameThread.curWind);
+				int myWind = Tile.convertWindToRaw(pMyPlayer.currentWind);
+				if(rndWind > 0)
+					individualTileWeights[rndWind] += Math.round(10 * scaler);
+				if(myWind > 0)
+					individualTileWeights[myWind] += Math.round(10 * scaler);*/
+			}
+			else if(yaku == Globals.SANSHOKUDOUJUN){
+				for(int j = 1; j < 35; j++){
+					if(individualTileWeights[j] != 0){
+						if((individualTileWeights[j] & DOUJUNWEIGHT) == DOUJUNWEIGHT){
+							localTileWeights[j] += Math.round(10 * scaler);
+							if(localTileWeightCounts[j] < 1)
+								localTileWeightCounts[j] = 1;
+						}
+					}
+				}
+			}
+			else if(yaku == Globals.ITSU){
+				//changed
+				for(int j = 1; j <= Globals.Suits.SANGEN; j++){
+					if(individualSuitValue[j] > 0){
+						int firstTile = 1+((j-1)*9);
+						for(int thisTile = firstTile; thisTile < (firstTile+9); thisTile++){
+							localTileWeights[thisTile] += Math.round(10 * scaler);
+							if(localTileWeightCounts[thisTile] < 1)
+								localTileWeightCounts[thisTile] = 1;
+						}
+						//individualSuitValue[j] += Math.round(10 * scaler);	
+					}
+				}
+			}
+			else if(yaku == Globals.CHANTA){
+				terminalWeight += Math.round(10 * scaler);
+				simpleWeight += 0;
+				ourWindWeight += Math.round(10 * scaler);
+				otherWindWeight += Math.round(5 * scaler);
+				dragonWeight += Math.round(10 * scaler);
+				doraWeight += 0;
+				pairWeight += 0;
+				twoSidedWeight += 0;
+				oneSidedWeight += 0;
+				ponWeight += 0;
+				chiWeight += 0;
+				kanWeight += 0;
+				emptyWaitWeight += 0; 
+				singleWaitWeight += 0;
+			}
+			else if(yaku == Globals.HONROUTOU){
+				terminalWeight += Math.round(10 * scaler);
+				simpleWeight += Math.round(-10 * scaler);
+				ourWindWeight += Math.round(10 * scaler);
+				otherWindWeight += Math.round(5 * scaler);
+				dragonWeight += Math.round(10 * scaler);
+				doraWeight += 0;
+				pairWeight += Math.round(5 * scaler);
+				twoSidedWeight += 0;
+				oneSidedWeight += 0;
+				ponWeight += Math.round(10 * scaler);
+				chiWeight += Math.round(-10 * scaler);
+				kanWeight += Math.round(10 * scaler);
+				emptyWaitWeight += 0; 
+				singleWaitWeight += 0;
+			}
+			else if(yaku == Globals.TOITOI){
+				//changed
+				terminalWeight += 0;
+				simpleWeight += 0;
+				ourWindWeight += 0;
+				otherWindWeight += 0;
+				dragonWeight += 0;
+				doraWeight += 0;
+				pairWeight += Math.round(7 * scaler);
+				twoSidedWeight += 0;
+				oneSidedWeight += 0;
+				ponWeight += Math.round(10 * scaler);
+				chiWeight += Math.round(-5 * scaler);//This was -10, but was lowered to make it less then a pair, but more then nothing
+				kanWeight += Math.round(10 * scaler);
+				emptyWaitWeight += 0; 
+				singleWaitWeight += 0;
+			}
+			else if(yaku == Globals.SANANKOU){
+				terminalWeight += 0;
+				simpleWeight += 0;
+				ourWindWeight += 0;
+				otherWindWeight += 0;
+				dragonWeight += 0;
+				doraWeight += 0;
+				pairWeight += Math.round(5 * scaler);
+				twoSidedWeight += 0;
+				oneSidedWeight += 0;
+				ponWeight += Math.round(10 * scaler);
+				chiWeight += 0;//Math.round(-2 * scaler);this was at -10 but that's not right, we can have a sanankou with a chi
+				kanWeight += Math.round(10 * scaler);
+				emptyWaitWeight += 0; 
+				singleWaitWeight += 0;
+			}
+			else if(yaku == Globals.SANKANTSU){
+				terminalWeight += 0;
+				simpleWeight += 0;
+				ourWindWeight += 0;
+				otherWindWeight += 0;
+				dragonWeight += 0;
+				doraWeight += 0;
+				pairWeight += Math.round(5 * scaler);
+				twoSidedWeight += 0;
+				oneSidedWeight += 0;
+				ponWeight += Math.round(5 * scaler);
+				chiWeight += Math.round(-10 * scaler);
+				kanWeight += Math.round(10 * scaler);
+				emptyWaitWeight += 0; 
+				singleWaitWeight += 0;
+			}
+			else if(yaku == Globals.SANSHOKUDOUKOU){
+				for(int j = 1; j < 28; j++){
+					if((individualTileWeights[j] & Globals.SANSHOKUDOUKOU) == Globals.SANSHOKUDOUKOU){
+						localTileWeights[j] += Math.round(10 * scaler);
+						localTileWeightCounts[j] = 3;
+					}
+				}
+			}
+			else if(yaku == Globals.CHIITOI){
+				terminalWeight += 0;
+				simpleWeight += 0;
+				ourWindWeight += 0;
+				otherWindWeight += 0;
+				dragonWeight += 0;
+				doraWeight += 0;
+				pairWeight += Math.round(10 * scaler);
+				twoSidedWeight += 0;
+				oneSidedWeight += 0;
+				ponWeight += Math.round(-30 * scaler); //We realllly need to break up pons
+				chiWeight += Math.round(-5 * scaler);
+				kanWeight += Math.round(-5 * scaler);
+				emptyWaitWeight += 0; 
+				singleWaitWeight += 0;
+			}
+			else if(yaku == Globals.SHOUSANGEN){
+				terminalWeight += 0;
+				simpleWeight += 0;
+				ourWindWeight += 0;
+				otherWindWeight += 0;
+				dragonWeight += Math.round(10 * scaler);
+				doraWeight += 0;
+				pairWeight += 0;
+				twoSidedWeight += 0;
+				oneSidedWeight += 0;
+				ponWeight += 0;
+				chiWeight += 0;
+				kanWeight += 0;
+				emptyWaitWeight += 0; 
+				singleWaitWeight += 0;
+			}
+			else if(yaku == Globals.HONITSU){
+				//Changed
+				bDisableSuitBonus = false;
+				for(int j = 1; j <= Globals.Suits.MAN; j++){
+					if(individualSuitValue[j] > 0)
+						individualSuitValue[j] += Math.round(10 * scaler);
+					else
+						individualSuitValue[j] += Math.round(-10 * scaler);	
+				}
+				individualSuitValue[Globals.Suits.SANGEN] += Math.round(10 * scaler);
+				individualSuitValue[Globals.Suits.KAZE] += Math.round(10 * scaler);
+			}
+			else if(yaku == Globals.JUNCHANTAYAO){
+				terminalWeight += Math.round(10 * scaler);
+				simpleWeight += 0;
+				ourWindWeight += Math.round(-10 * scaler);
+				otherWindWeight += Math.round(-10 * scaler);
+				dragonWeight += Math.round(-10 * scaler);
+				doraWeight += 0;
+				pairWeight += 0;
+				twoSidedWeight += 0;
+				oneSidedWeight += 0;
+				ponWeight += 0;
+				chiWeight += 0;
+				kanWeight += 0;
+				emptyWaitWeight += 0; 
+				singleWaitWeight += 0;
+			}
+			else if(yaku == Globals.RYANPEIKOU){
+				//Tile only
+				for(int j = 1; j < 35; j++){
+					if((individualTileWeights[j] & RYANPEIKOUWEIGHT) == RYANPEIKOUWEIGHT){
+						localTileWeights[j] += Math.round(10 * scaler);
+						if(localTileWeightCounts[j] < 2)
+							localTileWeightCounts[j] = 2;
+					}
+				}
+			}
+			else if(yaku == Globals.CHINITSU){
+				//Changed
+				bDisableSuitBonus = false;
+				for(int j = 1; j <= Globals.Suits.KAZE; j++){
+					if(individualSuitValue[j] > 0)
+						individualSuitValue[j] += Math.round(10 * scaler);	
+					else{
+						//We are giving winds/dragons a slight edge so that we can fall back to honitsu
+						if(j >= Globals.Suits.SANGEN)
+							individualSuitValue[j] += Math.round(-6 * scaler);	
+						else
+							individualSuitValue[j] += Math.round(-10 * scaler);	
+					}
+				}
+			}
+		}
+		try{
+			//int[] tileCounts = pMyPlayer.myHand.getTileCounts();
+			int[] unchangedTileCounts = pMyPlayer.myHand.getTileCounts();
+			for(int thisTile = Tile.BAMBOO_START; thisTile <= Tile.LAST_TILE; thisTile++){
+				if(tileCounts[thisTile] <= 0)
+					continue;
+				int thisSuit = Tile.convertRawToSuit(thisTile);
+				
+				int completeChis = 0;
+				int oneSidedChis = 0;
+				int twoSidedChis = 0;
+				int changeCount = 0;
+				if(thisSuit <= Globals.Suits.MAN){
+					int[] temp = new int[Tile.LAST_TILE+1];
+					boolean foundSomething = true;
+					while(foundSomething){
+						foundSomething = false;
+						if(Tile.convertRawToSuit(thisTile+1) == thisSuit){
+							if(tileCounts[thisTile+1] > 0){
+								//XX000
+								if(Tile.convertRawToSuit(thisTile+2) == thisSuit){
+									if(tileCounts[thisTile+2] > 0){
+										tileCounts[thisTile+1]--;
+										tileCounts[thisTile+2]--;
+										temp[thisTile+1]++;
+										temp[thisTile+2]++;
+										completeChis++;
+										changeCount++;
+										foundSomething = true;
+										continue;
+									}
+								}
+								//X000X
+								if(Tile.convertRawToSuit(thisTile-1) == thisSuit){
+									if(tileCounts[thisTile-1] > 0){
+										tileCounts[thisTile+1]--;
+										tileCounts[thisTile-1]--;
+										temp[thisTile+1]++;
+										temp[thisTile-1]++;
+										completeChis++;
+										changeCount++;
+										foundSomething = true;
+										continue;
+									}
+								}
+								if(((Tile.convertRawToSuit(thisTile-1) == thisSuit)&&(discardCounts[thisTile-1]+unchangedTileCounts[thisTile-1] != 4)) ||
+								   ((Tile.convertRawToSuit(thisTile+2) == thisSuit)&&(discardCounts[thisTile+2]+unchangedTileCounts[thisTile+2] != 4))	){
+										//XX00X
+										tileCounts[thisTile+1]--;
+										temp[thisTile+1]++;
+										if(Tile.convertRawToRelative(thisTile) != 1 && Tile.convertRawToRelative(thisTile+1) != 9)
+											twoSidedChis++;
+										else
+											oneSidedChis++;
+										changeCount++;
+										foundSomething = true;
+										continue;
+								}
+								//else //Delete this
+								//	Globals.myAssert(false);
+							}
+							//XX0X0
+							else if(Tile.convertRawToSuit(thisTile+2) == thisSuit){
+								if(tileCounts[thisTile+2] > 0){
+									if(discardCounts[thisTile+1]+unchangedTileCounts[thisTile+1] != 4){
+										tileCounts[thisTile+2]--;
+										temp[thisTile+2]++;
+										oneSidedChis++;
+										changeCount++;
+										foundSomething = true;
+										continue;
+									}
+									//else //Delete this
+									//	Globals.myAssert(false);
+								}
+							}
+						}
+						if(Tile.convertRawToSuit(thisTile-1) == thisSuit){
+							if(tileCounts[thisTile-1] > 0){
+								//000XX
+								if(Tile.convertRawToSuit(thisTile-2) == thisSuit){
+									if(tileCounts[thisTile-2] > 0){
+										tileCounts[thisTile-1]--;
+										tileCounts[thisTile-2]--;
+										temp[thisTile-1]++;
+										temp[thisTile-2]++;
+										completeChis++;
+										changeCount++;
+										foundSomething = true;
+										continue;
+									}
+								}
+								
+								if(((Tile.convertRawToSuit(thisTile-2) == thisSuit)&&(discardCounts[thisTile-2]+unchangedTileCounts[thisTile-2] != 4)) ||
+								   ((Tile.convertRawToSuit(thisTile+1) == thisSuit)&&(discardCounts[thisTile+1]+unchangedTileCounts[thisTile+1] != 4))	){
+										//X00XX
+										tileCounts[thisTile-1]--;
+										temp[thisTile-1]++;
+										if(Tile.convertRawToRelative(thisTile-1) != 1 && Tile.convertRawToRelative(thisTile) != 9)
+											twoSidedChis++;
+										else
+											oneSidedChis++;
+										changeCount++;
+										foundSomething = true;
+										continue;
+								}
+								//else //Delete this
+								//	Globals.myAssert(false);
+							}
+							//0X0XX
+							else if(Tile.convertRawToSuit(thisTile-2) == thisSuit){
+								if(tileCounts[thisTile-2] > 0){
+									if(discardCounts[thisTile-1]+unchangedTileCounts[thisTile-1] != 4){
+										tileCounts[thisTile-2]--;
+										temp[thisTile-2]++;
+										oneSidedChis++;
+										changeCount++;
+										foundSomething = true;
+										continue;
+									}
+									//else //Delete this
+									//	Globals.myAssert(false);
+								}
+							}
+						}
+					}
+					//Add those things back
+					if(changeCount > 0){
+						if(thisSuit == Globals.Suits.BAMBOO){
+							for(int i = Tile.BAMBOO_START; i <= Tile.BAMBOO_END; i++){
+								tileCounts[i] += temp[i];
+							}
+						}
+						else if(thisSuit == Globals.Suits.PIN){
+							for(int i = Tile.DOT_START; i <= Tile.DOT_END; i++){
+								tileCounts[i] += temp[i];
+							}
+						}
+						else if(thisSuit == Globals.Suits.MAN){
+							for(int i = Tile.CHAR_START; i <= Tile.CHAR_END; i++){
+								tileCounts[i] += temp[i];
+							}
+						}
+					}
+				}
+				//Set the values
+				for(int rawIdx = pMyPlayer.myHand.getFirstTile(thisTile); rawIdx != -1; rawIdx = pMyPlayer.myHand.getNextTile(thisTile, rawIdx)){
+					int activeHandIdx = pMyPlayer.myHand.rawToActiveIdx(rawIdx);
+					Test_Connections[activeHandIdx] = 0;
+					if(!bDisableSuitBonus)
+						Test_Connections[activeHandIdx] += individualSuitValue[thisSuit];
+					/**
+					 * Fix for san shoku doujun and others
+					 * 
+					 * We were having an issue where it would hold onto pair for way too long
+					 * EX: if we had 5677 both the 7's would get the doujun bonus so
+					 * 		we ended up keeping both 7's forever
+					 * 
+					 * Problem would still theoretically exist if there was a case where both
+					 * sanshoku doujun and doukou were triggered, but the likelyhood of that is slim
+					 */
+					if(localTileWeightCounts[thisTile] > 0){
+						Test_Connections[activeHandIdx] += localTileWeights[thisTile];
+						localTileWeightCounts[thisTile]--;
+					}
+					if(tileCounts[thisTile] == 2){
+						Test_Connections[activeHandIdx] += pairWeight;
+						if(discardCounts[thisTile]+meldCounts[thisTile] == 1)
+							Test_Connections[activeHandIdx] += singleWaitWeight;
+						else if(discardCounts[thisTile]+meldCounts[thisTile] >= 2)
+							Test_Connections[activeHandIdx] += emptyWaitWeight;
+					}
+					else if(tileCounts[thisTile] == 3)
+						Test_Connections[activeHandIdx] += ponWeight;
+					else if(tileCounts[thisTile] == 4)
+						Test_Connections[activeHandIdx] += kanWeight;
+					
+					if(completeChis > 0){
+						Test_Connections[activeHandIdx] += chiWeight;
+						completeChis--;
+						
+						/**
+						 * This is here so that we value middle tiles more
+						 * EX. if we have 3456, 4 & 5 should be worth more so that we don;t 
+						 * break up the chi 
+						 */
+						if(oneSidedChis +  twoSidedChis > 0){
+							if(twoSidedChis > 0){
+								Test_Connections[activeHandIdx] += twoSidedWeight;
+								//twoSidedChis--;
+							}
+							else if(oneSidedChis > 0){
+								Test_Connections[activeHandIdx] += oneSidedWeight;
+								//oneSidedChis--;
+							}
+						}
+					}
+					else if(oneSidedChis +  twoSidedChis > 0){
+						if(twoSidedChis > 0){
+							Test_Connections[activeHandIdx] += twoSidedWeight;
+							twoSidedChis--;
+						}
+						else if(oneSidedChis > 0){
+							Test_Connections[activeHandIdx] += oneSidedWeight;
+							oneSidedChis--;
+						}
+					}
+						
+					if(thisSuit == Globals.Suits.SANGEN){
+						Test_Connections[activeHandIdx] += dragonWeight;
+						
+						if(discardCounts[thisTile]+meldCounts[thisTile] == 1)
+							Test_Connections[activeHandIdx] += singleWaitWeight;
+						else if(discardCounts[thisTile]+meldCounts[thisTile] >= 2)
+							Test_Connections[activeHandIdx] += emptyWaitWeight;
+					}
+					else if(thisSuit == Globals.Suits.KAZE){
+						if(pMyPlayer.isMyWind(thisTile))
+							Test_Connections[activeHandIdx] += ourWindWeight;
+						else
+							Test_Connections[activeHandIdx] += otherWindWeight;
+						
+						if(discardCounts[thisTile]+meldCounts[thisTile] == 1)
+							Test_Connections[activeHandIdx] += singleWaitWeight;
+						else if(discardCounts[thisTile]+meldCounts[thisTile] >= 2)
+							Test_Connections[activeHandIdx] += emptyWaitWeight;
+					}
+					else{
+						if(Tile.convertRawToRelative(thisTile) == 1 || Tile.convertRawToRelative(thisTile) == 9){
+							Test_Connections[activeHandIdx] += terminalWeight;
+						}
+						else
+							Test_Connections[activeHandIdx] += simpleWeight;
+					}
+					if(pGameThread.mTable.isDora(thisTile) || pMyPlayer.getRawTileAt(rawIdx).redTile)
+						Test_Connections[activeHandIdx] += doraWeight;
+					
+				//lastTile = thisTile;
+				//counter++;
+				}
+			}
+		}
+		catch(Exception e){
+			String WhatAmI = e.toString();
+			WhatAmI.length();
+		}
+		
+	}
+	
 	public void AIMeld(Tile newTile, int from){
 		if(tilesToUse[2] != -1)
 			pMyPlayer.myHand.meld(newTile, tilesToUse[0], tilesToUse[1], tilesToUse[2], from);
@@ -1890,11 +2708,12 @@ public class AI extends /*Handler*/Thread {
 			int[] suitCount = {0,0,0,0,0,0};
 			
 			int[] tileCounts = pMyPlayer.myHand.getTileCounts();
+			int[] allDiscardCounts = pGameThread.mTable.getAllDiscardCounts();
 			//int[] rawTileCounts = pMyPlayer.myHand.getRawTileCounts();
 			
 			int numberOfTerminals = tileCounts[1]+tileCounts[9]+tileCounts[10]+tileCounts[18]+tileCounts[19]+tileCounts[27];
 			int numberOfHonors = tileCounts[28]+tileCounts[29]+tileCounts[30]+tileCounts[31]+tileCounts[32]+tileCounts[33]+tileCounts[34];
-			int numberOfSimples = pMyPlayer.myHand.activeHandSize - numberOfTerminals - numberOfHonors;
+			int numberOfSimples = pMyPlayer.myHand.activeHandMap.size() - numberOfTerminals - numberOfHonors;
 			int numberOfPairs = 0;
 			int numberOfPons = 0;
 			int numberOfKans = 0;
@@ -2307,6 +3126,39 @@ public class AI extends /*Handler*/Thread {
 				if(numberOfPairs > i)
 					awayFrom[Globals.SANKANTSU] -= 2;
 			}
+			
+			/**
+			 * The "impossible" conditions
+			 * 
+			 * There are certain, failry easy to see situations where a yaku is impossible to complete
+			 * We should try and stop it off here if thats the case
+			 * 
+			 */
+			if((allDiscardCounts[28]+allDiscardCounts[29]+allDiscardCounts[30]) >= 5){
+				awayFrom[Globals.SHOUSANGEN] = 99;
+				//Globals.myAssert(false);
+			}
+			if(allDiscardCounts[doukouTile] > 1 || allDiscardCounts[doukouTile+9] > 1 || allDiscardCounts[doukouTile+18] > 1){
+				awayFrom[Globals.SANSHOKUDOUKOU] = 99;
+				//Globals.myAssert(false);
+			}
+			int suitOffset = 9*(suitUsed-1);
+			for(int i = 1; i < 10; i++){
+				if(allDiscardCounts[i+suitOffset] == 4){
+					awayFrom[Globals.ITSU] = 99;
+					//Globals.myAssert(false);
+				}
+				if(i == doujunTile || i == doujunTile+1 || i == doujunTile+2){
+					if(allDiscardCounts[i] == 4 || allDiscardCounts[i+9] == 4 || allDiscardCounts[i+18] == 4){
+						awayFrom[Globals.SANSHOKUDOUJUN] = 99;
+						//Globals.myAssert(false);
+					}
+				}
+			}
+			if(allDiscardCounts[iipeikouTile] >= 3 || allDiscardCounts[iipeikouTile+1] >= 3 || allDiscardCounts[iipeikouTile+2] >= 3){
+				awayFrom[Globals.IIPEIKOU] = 99;
+				//Globals.myAssert(false);
+			}
 	
 		}
 		catch(Exception e){
@@ -2315,6 +3167,13 @@ public class AI extends /*Handler*/Thread {
 		}
 		                              
 	}
+	
+	/*private void setupTestAwayFrom(){
+		//By default set it to 99 (ie never even look at this)
+		for(int i = 0; i < Globals.AIYAKUCOUNT; i++){
+			awayFrom[i] = 99;
+		}
+	}*/
 	
 	void setOptimalHand(ArrayList<Set> newList){
 		optimalHand = newList;
