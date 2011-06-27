@@ -15,6 +15,7 @@ public class Player {
 	public boolean riichi;
 	public boolean ippatsu;
 	public boolean rinshan;
+	public boolean robbing;
 	public int characterID;
 	
 	//Super Powers
@@ -38,8 +39,8 @@ public class Player {
 		score = 25000;
 		
 		//Create and start the AI thread
-		//The thread should remain dorment unless we actually call on it to do something
-		//it's in a seperate thread so that the UI/GameThread won't be blocked
+		//The thread should remain dormant unless we actually call on it to do something
+		//it's in a separate thread so that the UI/GameThread won't be blocked
 		//by us doing random AI calculations
 		//myAI = new AI(ID); //default AI
 		//myAI.start();
@@ -62,6 +63,7 @@ public class Player {
 		riichi = false;
 		ippatsu = false;
 		rinshan = false;
+		robbing = false;
 		currentState = Globals.Characters.Graphics.NEUTRAL;
 		//for(int i = 0; i < Globals.Powers.COUNT; i++){
 		//	powerActivated[i] = false;
@@ -101,8 +103,11 @@ public class Player {
 	}
 	
 	public Tile getActiveTileAt(int pos){
-		//I should be doing some error checking here, but we are skipping it for time
-		return myHand.rawHand[myHand.activeHand[pos]];
+		if(pos < 0)
+			return null;
+		if(pos >= myHand.activeHandMap.size())
+			return null;
+		return myHand.rawHand[myHand.activeHandMap.get(pos).rawHandIdx];
 		
 	}
 	
@@ -194,13 +199,13 @@ public class Player {
 		try{
 			int[] tiles = new int[] {-1,-1, -1};
 			int counter = 0;
-			for(int i = 0; i <= myHand.activeHandSize; i++){
-				Tile tempTile = myHand.getRawTileAt(myHand.activeHand[i]);
+			for(int i = 0; i < myHand.activeHandMap.size(); i++){
+				Tile tempTile = myHand.getRawTileAt(myHand.activeHandMap.get(i).rawHandIdx);
 				//Globals.myAssert(tempTile != null);
 				if(tempTile == null)
 					continue;
 				if(tempTile.equals(tileToCall)){
-					tiles[counter++] = myHand.activeHand[i];
+					tiles[counter++] = myHand.activeHandMap.get(i).rawHandIdx;//myHand.activeHand[i];
 				}
 				if(counter >= 3)
 					break;
@@ -215,16 +220,26 @@ public class Player {
 		}
 	}
 	
+	public void autoPromotedKan(Tile tileToCall){
+		try{
+			myHand.meld(tileToCall, -1, -1, -1, -1);
+		}
+		catch(Exception e){
+			String WTFAmI = e.toString();
+			Log.e("Player.autoPromotedKan", WTFAmI);
+		}
+	}
+	
 	public void autoSelfKan(){
 		try{
 			int[] tiles = new int[] {-1,-1, -1, -1};
 			int counter = 0;
 			int[] tileCounts = myHand.getTileCounts();
-			for(int thisMeld = 0; thisMeld < myHand.numberOfMelds; thisMeld++){
+			/*for(int thisMeld = 0; thisMeld < myHand.numberOfMelds; thisMeld++){
 				if(myHand.rawHand[myHand.melds[thisMeld][1]].rawNumber == myHand.rawHand[myHand.melds[thisMeld][2]].rawNumber){
 					tileCounts[myHand.rawHand[myHand.melds[thisMeld][1]].rawNumber] += 3;
 				}
-			}
+			}*/
 			Tile tileToCall = new Tile();
 			for(int thisTile = 1; thisTile <= Tile.LAST_TILE; thisTile++){
 				if(tileCounts[thisTile] == 4){
@@ -232,13 +247,13 @@ public class Player {
 					break;
 				}
 			}
-			for(int i = 0; i <= myHand.activeHandSize; i++){
-				Tile tempTile = myHand.getRawTileAt(myHand.activeHand[i]);
+			for(int i = 0; i < myHand.activeHandMap.size(); i++){
+				Tile tempTile = myHand.getRawTileAt(myHand.activeHandMap.get(i).rawHandIdx);
 				//Globals.myAssert(tempTile != null);
 				if(tempTile == null)
 					continue;
 				if(tempTile.equals(tileToCall)){
-					tiles[counter++] = myHand.activeHand[i];
+					tiles[counter++] = myHand.activeHandMap.get(i).rawHandIdx;
 				}
 				if(counter >= 4)
 					break;
