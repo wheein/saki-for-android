@@ -2,6 +2,7 @@ package mahjong.riichi;
 import java.util.*;
 
 import android.util.Log;
+import android.util.Pair;
 
 public class Hand extends Object{
 	
@@ -34,9 +35,10 @@ public class Hand extends Object{
 	 * activeHand - Based on suits, tiles arranged in sequential order.  
 	 * 				Used to display the hand on screen 
 	 */
-	public Integer[][] suits;
-	public int[] activeHand;
-	public int activeHandSize;
+	//public Integer[][] suits;
+	//public int[] activeHand;
+	//public int activeHandSize;
+	public ArrayList<ActiveHandPair> activeHandMap;
 	
 	/**
 	 * Melds
@@ -59,10 +61,13 @@ public class Hand extends Object{
 	 * inTenpai - boolean, are we in tenpai
 	 * 			  Setup in getShantenCount_TreeVersion
 	 * inFuriten - boolean, are we in furiten
+	 * 
+	 * unusedTiles - Borrowed from AI, used only to tell what is legal to discard after calling riichi
 	 */
 	public ArrayList<Integer> tenpaiTiles;
 	public boolean inTenpai;
 	public boolean inFuriten;
+	public ArrayList<Integer> riichiTiles;
 	
 	/**
 	 * This will contain every tile we could call.  The numbers in here are set up where
@@ -109,24 +114,26 @@ public class Hand extends Object{
 		dot = new int[14];
 		character = new int[14];
 		honor = new int[14];*/
-		suits = new Integer[][] {{-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
-							 	 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
-							 	 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
-							 	 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
-							 	 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
-							 	 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1}};
+		//suits = new Integer[][] {{-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
+		//					 	 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
+		//					 	 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
+		//					 	 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
+		//					 	 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1},
+		//					 	 {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1}};
 		/*vSuits = new ArrayList<Integer>[7];
 		for ( int i = 0; i < 7; i++ )
 		    vSuits[i] = new ArrayList<Integer>();*/
 		melds = new int[4][6];
 		numberOfMelds = 0;
-		activeHand = new int[14];
-		activeHandSize = 0;
+		//activeHand = new int[15];
+		activeHandMap = new ArrayList<ActiveHandPair>();
+		//activeHandSize = 0;
 		AIControlled = true;
 		tenpaiTiles = new ArrayList<Integer>();
 		inTenpai = false;
 		inFuriten = false;
 		tilesWeCouldCall = new ArrayList<Integer>();
+		riichiTiles = new ArrayList<Integer>();
 		
 		fu = 0; 
 		han = 0;
@@ -138,29 +145,39 @@ public class Hand extends Object{
 	
 	//Actions!  How Exciting!
 	//Sort should really only be called at the start of a hand.  The insert/discard/meld functions will auto sort after that
-	public void sort(){
+	public void rebuildActiveHand(){
 		try{
+			activeHandMap.clear();
+			for(int thisTile = 0; thisTile < rawHandMax; thisTile++){
+				Tile tempTile = rawHand[thisTile];
+				if(tempTile == null)
+					continue;
+				if(tempTile.open)
+					continue;
+				activeHandMap.add(new ActiveHandPair(tempTile.rawNumber, thisTile));
+			}
+			
 			if(rawHandSize <= 1)
 				return;
 			
 			//Clear it out, it screws it up if you try overriding a previous sort
-			for(int i = 0; i <= Globals.Suits.KAZE; i++){
-				for(int j = 0; j < 16; j++){
-					suits[i][j] = -1;
-				}
-			}
+			//for(int i = 0; i <= Globals.Suits.KAZE; i++){
+			//	for(int j = 0; j < 16; j++){
+			//		suits[i][j] = -1;
+			//	}
+			//}
 			
-			for(int i = 0; i < rawHandMax; i++){
-				Tile thisTile = rawHand[i];
-				if(thisTile == null)
-					continue;
-				int thisSuit = thisTile.getSuit();
+			//for(int i = 0; i < rawHandMax; i++){
+			//	Tile thisTile = rawHand[i];
+			//	if(thisTile == null)
+			//		continue;
+			//	int thisSuit = thisTile.getSuit();
 				
 				//Skip open tiles (only relevant after a meld)
-				if(thisTile.open)
-					continue;
+			//	if(thisTile.open)
+			//		continue;
 				
-				if(suits[thisSuit][0] == -1){//special case for first entry
+				/*if(suits[thisSuit][0] == -1){//special case for first entry
 					suits[thisSuit][0] = i;
 				}
 				else{
@@ -186,7 +203,7 @@ public class Hand extends Object{
 						suits[thisSuit][counter] = holder;
 					else
 						suits[thisSuit][counter] = i;
-				}
+				}*/
 				
 				//List version
 				/*if(vSuits[thisSuit].isEmpty()){//special case for first entry
@@ -203,10 +220,10 @@ public class Hand extends Object{
 					}
 					vSuits[thisSuit].add(addAt, i);
 				}*/
-			}
+			//}
 			
 			//Active hand seems unnecessary, but without it the discard function becomes a mess
-			buildActiveHand();
+			sort();
 		}
 		catch(Exception e){
 			String WTFAmI = e.toString();
@@ -215,7 +232,7 @@ public class Hand extends Object{
 	}
 	
 	public Tile discard(int thisTile, boolean isRawTile){
-		if((thisTile == -1)||(activeHand[thisTile] == -1)){ //just throw out the new tile
+		if(thisTile == -1){ //just throw out the new tile
 			Globals.myAssert(false);
 			thisTile = Tile14;
 			if(thisTile < 0){
@@ -226,37 +243,53 @@ public class Hand extends Object{
 		}
 		
 		int rawPos = 0;
-		if(isRawTile){
-			rawPos = thisTile;
+		if(!isRawTile){
+			if(thisTile < 0 || thisTile >= activeHandMap.size()){
+				Globals.myAssert(false); //Something went terribly wrong, just discard the first tile
+				thisTile = 0;
+			}
+			ActiveHandPair toDiscard = activeHandMap.get(thisTile);
+			if(toDiscard == null)
+				toDiscard = activeHandMap.get(0);
+			
+			Globals.myAssert(toDiscard != null);
+			rawPos = toDiscard.rawHandIdx;
 		}
 		else{
-			rawPos = activeHand[thisTile];
+			rawPos = thisTile;
 		}
-		int thisSuit = rawHand[rawPos].getSuit();
-		boolean Deleted = false;
-		int counter = 0;
-		while(suits[thisSuit][counter]!=-1){
-			if(Deleted){
-				suits[thisSuit][counter] = suits[thisSuit][counter+1];
-			}
-			else{
-				if(/*activeHand[thisTile]*/rawPos == suits[thisSuit][counter]){
-					suits[thisSuit][counter] = suits[thisSuit][counter+1];
-					Deleted = true;
-				}
-			}
-			counter++;
-		}
-		if(!Deleted)
-			return null;
+
+		//int thisSuit = rawHand[rawPos].getSuit();
+		//boolean Deleted = false;
+		//int counter = 0;
+		//while(suits[thisSuit][counter]!=-1){
+		//	if(Deleted){
+		//		suits[thisSuit][counter] = suits[thisSuit][counter+1];
+		//	}
+		//	else{
+		//		if(/*activeHand[thisTile]*/rawPos == suits[thisSuit][counter]){
+		//			suits[thisSuit][counter] = suits[thisSuit][counter+1];
+		//			Deleted = true;
+		//		}
+		//	}
+		//	counter++;
+		//}
+		//if(!Deleted)
+		//	return null;
+		if(isRawTile)
+			Globals.myAssert(activeHandMap.remove(new ActiveHandPair(0, rawPos)));
+		else
+			activeHandMap.remove(thisTile);
 			
 		Tile ret = rawHand[rawPos];
 		rawHand[rawPos] = null;
 		rawHandSize--;
+		//int indexToRemove = activeHandMap.indexOf(new ActiveHandPair(ret.rawNumber, rawPos));
+		//Globals.myAssert(indexToRemove >=0 && indexToRemove < activeHandMap.size());
 		//if(Tile14.rawNumber != -1){
 		//	insert(rawPos);//Add the 14th tile in
 		//}
-		buildActiveHand();
+		sort();
 		return ret;
 	}
 	
@@ -265,18 +298,21 @@ public class Hand extends Object{
 			return -1;
 		if(rawHand[rawIdx] == null)
 			return -1;
-		for(int i = 0; i < activeHandSize; i++){
-			if(activeHand[i] == rawIdx)
-				return i;
-		}
+		int ret = activeHandMap.indexOf(new ActiveHandPair(0, rawIdx));
+		//for(int i = 0; i < activeHandSize; i++){
+		//	if(activeHand[i] == rawIdx)
+		//		return i;
+		//}
 		
-		return -1;
+		return ret;//-1;
 	}
 	
 	public void deal(Tile newTile){
 		//We have to clone tiles here or else it will break everything when someone makes
 		//a call
+		ActiveHandPair pairToAdd = new ActiveHandPair(newTile.rawNumber, rawHandSize);
 		rawHand[rawHandSize++] = new Tile(newTile);
+		Globals.myAssert(activeHandMap.add(pairToAdd));
 	}
 	
 	public void clear(){
@@ -286,11 +322,12 @@ public class Hand extends Object{
 		rawHandSize = 0;
 		Tile14 = -1;
 		numberOfMelds = 0;
-		for(int i = 0; i < 6; i++){
-			for(int j = 0; j < 16; j++){
-				suits[i][j] = -1;
-			}
-		}
+		//for(int i = 0; i < 6; i++){
+		//	for(int j = 0; j < 16; j++){
+		//		suits[i][j] = -1;
+		//	}
+		//}
+		activeHandMap.clear();
 		openHand = false;
 		tenpaiTiles.clear();
 		tilesWeCouldCall.clear();
@@ -310,6 +347,8 @@ public class Hand extends Object{
 				}	
 			}
 			rawHand[Tile14] = newTile;
+			ActiveHandPair pairToAdd = new ActiveHandPair(newTile.rawNumber, Tile14);
+			Globals.myAssert(activeHandMap.add(pairToAdd));
 			rawHandSize++;
 		}
 		catch(Exception e){
@@ -319,7 +358,8 @@ public class Hand extends Object{
 		}
 		try{
 			if(sort){
-				int thisSuit = newTile.getSuit();
+				//Collections.sort(activeHandMap);
+				/*int thisSuit = newTile.getSuit();
 		
 				boolean Inserted = false;
 				int counter = 0;
@@ -353,8 +393,8 @@ public class Hand extends Object{
 				else
 					suits[thisSuit][counter] = holder;
 				
-				//Tile14.rawNumber = -1;
-				buildActiveHand();
+				//Tile14.rawNumber = -1;*/
+				sort();
 			}
 			return true;
 		}
@@ -383,6 +423,7 @@ public class Hand extends Object{
 					}
 				}
 				Globals.myAssert(found);
+				rebuildActiveHand();
 				return;
 			}
 			
@@ -410,7 +451,7 @@ public class Hand extends Object{
 			String WTFAmI = e.toString();
 			Log.e("Hand.Meld", WTFAmI);
 		}
-		sort();
+		rebuildActiveHand();
 	}
 	
 	/**
@@ -433,6 +474,7 @@ public class Hand extends Object{
 					}
 				}
 				Globals.myAssert(found);
+				rebuildActiveHand();
 				return;
 			}
 			
@@ -465,23 +507,25 @@ public class Hand extends Object{
 			String WTFAmI = e.toString();
 			Log.e("Hand.Meld_SelfKan", WTFAmI);
 		}
-		sort();
+		rebuildActiveHand();
 	}
 	
 	//Helpers
-	private void buildActiveHand(){
+	private void sort(){
 		try{
-			int iter = 0;
-			for(int i = 1; i < 6; i++){
-				for(int j = 0; suits[i][j]!=-1; j++){
-					if(!rawHand[suits[i][j]].open)
-						activeHand[iter++] = suits[i][j];
-				}
-			}
-			activeHandSize = iter;
-			while(iter != 14){
-				activeHand[iter++] = -1;
-			}
+			Collections.sort(activeHandMap);
+			//int iter = 0;
+			//for(int i = 1; i < 6; i++){
+			//	for(int j = 0; suits[i][j]!=-1; j++){
+			//		if(!rawHand[suits[i][j]].open)
+			//			activeHand[iter++] = suits[i][j];
+			//	}
+			//}
+			//activeHandSize = iter;
+			//while(iter != 14){
+			//	activeHand[iter++] = -1;
+			//}
+
 		}
 		catch(Exception e){
 			String WTFAmI = e.toString();
@@ -489,6 +533,11 @@ public class Hand extends Object{
 		}
 	}
 	
+	/**
+	 * 
+	 * Getters and Setters
+	 * 
+	 */
 	public Tile getRawTileAt(int idx){
 		if(idx < 0 || idx >= 19){
 			Globals.myAssert(false);
@@ -502,12 +551,18 @@ public class Hand extends Object{
 	
 	public Tile getTileFromActiveIdx(int idx){
 		try{
-			if(activeHand[idx] < 0)
-				return null;
-			if(idx < 0 || idx > 14)
+			if(idx < 0 || idx >= activeHandMap.size())
 				return null;
 			
-			Tile ret = rawHand[activeHand[idx]];
+			ActiveHandPair thisTile = activeHandMap.get(idx);
+			
+			if(thisTile == null)
+				return null;
+			if(thisTile.rawHandIdx < 0)
+				return null;
+			
+			
+			Tile ret = rawHand[thisTile.rawHandIdx];
 			return ret;
 		}
 		catch(Exception e){
@@ -523,11 +578,17 @@ public class Hand extends Object{
 		if(thisSuit < Globals.Suits.BAMBOO || thisSuit > Globals.Suits.KAZE)
 			return -1;
 		int counter = 0;
-		while(suits[thisSuit][counter] != -1){
-			if(rawHand[suits[thisSuit][counter]].rawNumber == rawNumber)
-				return suits[thisSuit][counter];
-			counter++;
+		
+		for(int thisPair = 0; thisPair < activeHandMap.size(); thisPair++){
+			ActiveHandPair tempPair = activeHandMap.get(thisPair);
+			if(tempPair.rawNumber == rawNumber)
+				return tempPair.rawHandIdx;
 		}
+		//while(suits[thisSuit][counter] != -1){
+		//	if(rawHand[suits[thisSuit][counter]].rawNumber == rawNumber)
+		//		return suits[thisSuit][counter];
+		//	counter++;
+		//}
 		return -1;
 	}
 	
@@ -536,11 +597,16 @@ public class Hand extends Object{
 		if(thisSuit < Globals.Suits.BAMBOO || thisSuit > Globals.Suits.KAZE)
 			return -1;
 		int counter = 0;
-		while(suits[thisSuit][counter] != -1){
-			if(rawHand[suits[thisSuit][counter]].equals(tileToFind))
-				return suits[thisSuit][counter];
-			counter++;
+		for(int thisPair = 0; thisPair < activeHandMap.size(); thisPair++){
+			ActiveHandPair tempPair = activeHandMap.get(thisPair);
+			if(tempPair.rawNumber == tileToFind.rawNumber)
+				return tempPair.rawHandIdx;
 		}
+		//while(suits[thisSuit][counter] != -1){
+		//	if(rawHand[suits[thisSuit][counter]].equals(tileToFind))
+		//		return suits[thisSuit][counter];
+		//	counter++;
+		//}
 		return -1;
 	}
 	
@@ -550,30 +616,41 @@ public class Hand extends Object{
 			return -1;
 		int counter = 0;
 		boolean foundOld = false;
-		while(suits[thisSuit][counter] != -1){
+		for(int thisPair = 0; thisPair < activeHandMap.size(); thisPair++){
+			ActiveHandPair tempPair = activeHandMap.get(thisPair);
+			if(tempPair.rawNumber == rawNumber){
+				if(foundOld)
+					return tempPair.rawHandIdx;
+				else if(tempPair.rawHandIdx == lastIdx)
+					foundOld = true;
+			}
+				
+		}
+		/*while(suits[thisSuit][counter] != -1){
 			if(suits[thisSuit][counter] == lastIdx)
 				foundOld = true;
 			else if(rawHand[suits[thisSuit][counter]].rawNumber == rawNumber && foundOld)
 				return suits[thisSuit][counter];
 			counter++;
-		}
+		}*/
 		return -1;
 	}
 	
 	public int getNextTile(Tile tileToFind, int lastIdx){
-		int thisSuit = tileToFind.getSuit();
-		if(thisSuit < Globals.Suits.BAMBOO || thisSuit > Globals.Suits.KAZE)
-			return -1;
-		int counter = 0;
-		boolean foundOld = false;
-		while(suits[thisSuit][counter] != -1){
-			if(suits[thisSuit][counter] == lastIdx)
-				foundOld = true;
-			else if(rawHand[suits[thisSuit][counter]].equals(tileToFind) && foundOld)
-				return suits[thisSuit][counter];
-			counter++;
-		}
-		return -1;
+		return getNextTile(tileToFind.rawNumber, lastIdx);
+		//int thisSuit = tileToFind.getSuit();
+		//if(thisSuit < Globals.Suits.BAMBOO || thisSuit > Globals.Suits.KAZE)
+		//	return -1;
+		//int counter = 0;
+		//boolean foundOld = false;
+		//while(suits[thisSuit][counter] != -1){
+		//	if(suits[thisSuit][counter] == lastIdx)
+		//		foundOld = true;
+		//	else if(rawHand[suits[thisSuit][counter]].equals(tileToFind) && foundOld)
+		//		return suits[thisSuit][counter];
+		//	counter++;
+		//}
+		//return -1;
 	}
 	
 	/**
@@ -638,6 +715,9 @@ public class Hand extends Object{
 		return tileCounts;
 	}
 	
+	/**
+	 * Functions relating to calls
+	 */
 	public void setupTilesToCall(){
 		tilesWeCouldCall.clear();
 		int[] tileCounts = getTileCounts();
@@ -769,11 +849,11 @@ public class Hand extends Object{
 	public boolean canCallSelfKan(){
 		try{
 			int[] tileCounts = getTileCounts();
-			for(int thisMeld = 0; thisMeld < numberOfMelds; thisMeld++){
-				if(rawHand[melds[thisMeld][1]].rawNumber == rawHand[melds[thisMeld][2]].rawNumber){
-					tileCounts[rawHand[melds[thisMeld][1]].rawNumber] += 3;
-				}
-			}
+			//for(int thisMeld = 0; thisMeld < numberOfMelds; thisMeld++){
+			//	if(rawHand[melds[thisMeld][1]].rawNumber == rawHand[melds[thisMeld][2]].rawNumber){
+			//		tileCounts[rawHand[melds[thisMeld][1]].rawNumber] += 3;
+			//	}
+			//}
 			for(int thisTile = 1; thisTile <= Tile.LAST_TILE; thisTile++){
 				if(tileCounts[thisTile] == 4)
 					return true;
@@ -786,6 +866,39 @@ public class Hand extends Object{
 			return false;
 		}
 	}
+	
+	public int canCallPromotedKan(){
+		try{
+			if(numberOfMelds == 0)
+				return -1;
+			
+			int[] tileCounts = getTileCounts();
+			int[] possibleKanCounts = new int[Tile.LAST_TILE+1];
+			for(int thisMeld = 0; thisMeld < numberOfMelds; thisMeld++){
+				if(melds[thisMeld][0] == 3 && rawHand[melds[thisMeld][1]].rawNumber == rawHand[melds[thisMeld][2]].rawNumber){
+					possibleKanCounts[rawHand[melds[thisMeld][1]].rawNumber] = 3;
+				}
+			}
+			for(int thisTile = 0; thisTile < activeHandMap.size(); thisTile++){
+				ActiveHandPair thisPair = activeHandMap.get(thisTile);
+				if(possibleKanCounts[thisPair.rawNumber] == 3)
+					return thisTile;
+			}
+			/*for(int thisTile = 1; thisTile <= Tile.LAST_TILE; thisTile++){
+				if(possibleKanCounts[thisTile] == 3){
+					if(tileCounts[thisTile] == 1)
+						return getFirstTile(thisTile);
+				}
+			}*/
+			return -1;
+		}
+		catch(Exception e){
+			String WTFAmI = e.toString();
+			Log.e("Hand.canCallPromotedKan", WTFAmI);
+			return -1;
+		}
+	}
+	
 	public boolean canCallRon(Tile tileToCall){
 		try{
 			if(inFuriten)
@@ -871,6 +984,7 @@ public class Hand extends Object{
 
 		try{
 			optimalHand.clear();
+			riichiTiles.clear();
 			
 			/**
 			 * Special Check for stupid hands
@@ -1092,6 +1206,7 @@ public class Hand extends Object{
 					else
 						parent.addChild(new Set(thisTile, thisTile, thisTile));
 				}
+				/*Old, we are switching the order to raise efficiency a bit.  Every little bit counts!
 				if(tileCounts[thisTile] >= 2){
 					if(doMirrorPruning)
 						stuffToAdd.add(new Set(thisTile, thisTile));
@@ -1101,6 +1216,7 @@ public class Hand extends Object{
 				
 				//If there is no possible Chi use do we need the unusedTile branch?
 				//Ans: Yes, yes we do
+				
 				if(Tile.convertRawToSuit(thisTile) <= Globals.Suits.MAN){
 					if(Tile.convertRawToRelative(thisTile) <= 8){
 						if(Tile.convertRawToRelative(thisTile) <= 7){
@@ -1127,6 +1243,50 @@ public class Hand extends Object{
 								parent.addChild(new Set(thisTile, thisTile+1));
 						}
 						
+					}
+				}*/
+				
+				//Full Chi
+				if(Tile.convertRawToSuit(thisTile) <= Globals.Suits.MAN){
+					if(Tile.convertRawToRelative(thisTile) <= 8){
+						if(tileCounts[thisTile+1] > 0){
+							if(Tile.convertRawToRelative(thisTile) <= 7){
+								if(tileCounts[thisTile+2] > 0){
+									if(doMirrorPruning)
+										stuffToAdd.add(new Set(thisTile, thisTile+1, thisTile+2));
+									else
+										parent.addChild(new Set(thisTile, thisTile+1, thisTile+2));
+								}
+							}
+						}
+					}
+				}
+				
+				//Then Pairs
+				if(tileCounts[thisTile] >= 2){
+					if(doMirrorPruning)
+						stuffToAdd.add(new Set(thisTile, thisTile));
+					else
+						parent.addChild(new Set(thisTile, thisTile));
+				}
+				
+				//Then partial Chis
+				if(Tile.convertRawToSuit(thisTile) <= Globals.Suits.MAN){
+					if(Tile.convertRawToRelative(thisTile) <= 8){
+						if(tileCounts[thisTile+1] > 0){			
+							if(doMirrorPruning)//Partial Chi
+								stuffToAdd.add(new Set(thisTile, thisTile+1));
+							else
+								parent.addChild(new Set(thisTile, thisTile+1));
+						}
+						if(Tile.convertRawToRelative(thisTile) <= 7){
+							if(tileCounts[thisTile+2] > 0){//Middle chi wait
+								if(doMirrorPruning)
+									stuffToAdd.add(new Set(thisTile, thisTile+2));
+								else
+									parent.addChild(new Set(thisTile, thisTile+2));
+							}
+						}
 					}
 				}
 				
@@ -1241,6 +1401,15 @@ public class Hand extends Object{
 				if((Pairs == 4)&&(tilesAway > 3))
 					tilesAway = 3;
 				
+				//This is counter inuitive but once we are in riichi we do not need to do this anymore
+				if(tilesAway == 1 && !pMyPlayer.riichi){
+					for(Node n = parent; n != null; n = n.myParent){
+						if(n.mySet.size == 1){
+							if(!riichiTiles.contains(n.mySet.tiles[0]))
+								riichiTiles.add(n.mySet.tiles[0]);
+						}
+					}
+				}
 				
 				if(getTenpaiTiles){
 					if((tilesAway == 1)&&(!pMyPlayer.riichi || pMyPlayer.ippatsu)){
@@ -1818,6 +1987,8 @@ public class Hand extends Object{
 				yaku[Globals.IPPATSU] = 1;
 			if(pMyPlayer.rinshan)
 				yaku[Globals.RINSHAN] = 1;
+			if(pMyPlayer.robbing)
+				yaku[Globals.CHANKAN] = 1;
 			
 			if(selfDraw && !isOpen)
 				yaku[Globals.MENZEN] = 1;
