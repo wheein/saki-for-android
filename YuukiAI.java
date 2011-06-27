@@ -37,6 +37,8 @@ public class YuukiAI extends AI {
 	protected void handlePowersAtStart(){
 		bDrawMode = false;
 		bTsumoMode = false;
+		pMyPlayer.powerTiles.clear();
+		
 		if(pGameThread.curWind == Globals.Winds.EAST){
 			if(randGenerator.nextInt(3)==0)
 				bDrawMode = true;
@@ -49,7 +51,7 @@ public class YuukiAI extends AI {
 			//Set up the tiles we want to recieve
 			//I'm not sure the best way to do this, for the time being we will ask for 
 			//Honors, winds, and 1 random suit
-			pMyPlayer.powerTiles.clear();
+			
 			for(int thisTile = Tile.HONOR_START; thisTile <= Tile.LAST_TILE; thisTile++){
 				pMyPlayer.powerTiles.add(thisTile);
 			}
@@ -110,3 +112,4 @@ public class YuukiAI extends AI {
 	}
 
 }
+
