@@ -54,7 +54,7 @@ public class SakiAI extends AI{
 							  Globals.RYANPEIKOU};
 	}
 	
-	public void requestOutput(int cmd){
+	/*public void requestOutput(int cmd){
 		/*if(cmd == DISCARD){
 			output = handleDiscard();
 			outputReady = true;
@@ -107,7 +107,7 @@ public class SakiAI extends AI{
 				outputReady = true;
 			}
 		}*/
-		/*else */if(cmd == SELFKAN){
+		/*else *//*if(cmd == SELFKAN){
 			int[] tileCounts = pMyPlayer.myHand.getTileCounts();
 			for(int thisMeld = 0; thisMeld < pMyPlayer.myHand.numberOfMelds; thisMeld++){
 				if(pMyPlayer.myHand.rawHand[pMyPlayer.myHand.melds[thisMeld][1]].rawNumber == pMyPlayer.myHand.rawHand[pMyPlayer.myHand.melds[thisMeld][2]].rawNumber){
@@ -163,7 +163,7 @@ public class SakiAI extends AI{
 			super.requestOutput(cmd);
 			return;
 		}
-	}
+	}*/
 	
 	protected int handleCall(){
 		/**
@@ -204,7 +204,6 @@ public class SakiAI extends AI{
 	
 	protected void handlePowersAtDiscard(){
 		try{
-			super.handlePowersAtDiscard();
 			//Reserve our Kan Tiles
 			//if(ShantanCount <= 2){
 				//Clear it out first...
@@ -290,6 +289,7 @@ public class SakiAI extends AI{
 			//	}
 			//}
 			
+			super.handlePowersAtDiscard();
 		}
 		catch(Exception e){
 			String WTFAmI = e.toString();
@@ -299,8 +299,13 @@ public class SakiAI extends AI{
 	
 	protected void handlePowersAtKan(){
 		try{
-			super.handlePowersAtKan();
 			if(pMyPlayer.rinshan && ShantanCount == 1){
+				
+				//This should only happen after a self kan =/
+				if(pMyPlayer.myHand.tenpaiTiles.isEmpty()){
+					pMyPlayer.myHand.getShantenCount_TreeVersion(1, true);
+				}
+				
 				//Activate powers 
 				for(int thisTile = 0; thisTile < pMyPlayer.myHand.tenpaiTiles.size(); thisTile++){
 					if(pGameThread.mTable.isLeftInWall(pMyPlayer.myHand.tenpaiTiles.get(thisTile))){
@@ -318,6 +323,8 @@ public class SakiAI extends AI{
 					pGameThread.mTable.reserveTile(pMyPlayer.powerTiles.get(i));
 				}
 			}
+			
+			super.handlePowersAtKan();
 		}
 		catch(Exception e){
 			String WTFAmI = e.toString();
@@ -337,5 +344,9 @@ public class SakiAI extends AI{
 			pGameThread.mTable.unreserveTile(pMyPlayer.powerTiles.get(i));
 		}
 		pMyPlayer.powerTiles.clear();
+	}
+	
+	protected void handlePowersAtEnd(){
+		turnOffPowers();
 	}
 }
