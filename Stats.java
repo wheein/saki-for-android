@@ -426,9 +426,12 @@ public class Stats {
 	
 	public void calcStats(){
 		try{
+			Integer totalHandsAdjusted = totalHands;
+			if(bAI)
+				totalHandsAdjusted = totalHandsAdjusted/3;
 			
 			if(totalHands >0){
-				winPercentage = ((double)(wonByRon+wonByTsumo))/((double)totalHands)*100;
+				winPercentage = ((double)(wonByRon+wonByTsumo))/((double)totalHandsAdjusted)*100;
 			}
 			else{
 				winPercentage = 0.0;
