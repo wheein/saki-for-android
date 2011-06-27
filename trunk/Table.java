@@ -351,7 +351,7 @@ public class Table {
 	}
 	
 	public boolean addDora(){
-		if(Dora.size() >= 4)
+		if(Dora.size() >= 5)
 			return false;
 		Tile doraTile = drawRandomTile();
 		Globals.myAssert(doraTile != null);
