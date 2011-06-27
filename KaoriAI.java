@@ -147,7 +147,7 @@ public class KaoriAI extends AI {
 				sleep(100);
 			}
 			if(bBeginnerMode){
-				int idx = randGenerator.nextInt(pMyPlayer.myHand.activeHandSize);
+				int idx = randGenerator.nextInt(pMyPlayer.myHand.activeHandMap.size());
 				if(pMyPlayer.myHand.getTileFromActiveIdx(idx) != null)
 					return idx;
 			}
