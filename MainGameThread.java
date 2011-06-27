@@ -140,16 +140,17 @@ public class MainGameThread extends Thread implements Runnable{
 			for(int tileNum = 0; tileNum < 13; tileNum++){
 				for(int dealTo = 0; dealTo < 4; dealTo++){
 					Tile temp = getTileFromWall(dealTo);//mTable.drawRandomTile();
+					
 					mPlayers[dealTo].myHand.deal(temp);
 				}
 			}
 			
 			wallCount = mTable.wallCount();
 			
-			mPlayers[0].myHand.sort();
-			mPlayers[1].myHand.sort();
-			mPlayers[2].myHand.sort();
-			mPlayers[3].myHand.sort();
+			mPlayers[0].myHand.rebuildActiveHand();
+			mPlayers[1].myHand.rebuildActiveHand();
+			mPlayers[2].myHand.rebuildActiveHand();
+			mPlayers[3].myHand.rebuildActiveHand();
 			
 			mUI.newRound();
 			
@@ -260,7 +261,8 @@ public class MainGameThread extends Thread implements Runnable{
 						int result = DRAW;
 						
 						//Until the wall is empty
-						while(mTable.wallCount() > 0 && mRunning){
+						//The only exception to this is when someone calls the last discard
+						while((mTable.wallCount() > 0 || !needDraw) && mRunning){
 							
 							int wallCount = mTable.wallCount();
 							
@@ -312,13 +314,14 @@ public class MainGameThread extends Thread implements Runnable{
 							if(mPlayers[curPlayer].riichi && mPlayers[curPlayer].myHand.tenpaiTiles.isEmpty())
 								Globals.myAssert(false);
 							
-							//There needs to be a special Tsumo tile/signal...in the future
 							if(mPlayers[curPlayer].AIControlled){
 								mUI.triggerRedraw();
 								
 								tilesAway = mPlayers[curPlayer].myAI.ShantanCount;
 								
 								boolean canKan = mPlayers[curPlayer].myHand.canCallSelfKan();
+								int promotedKan = mPlayers[curPlayer].myHand.canCallPromotedKan();
+								
 								if(canKan){
 									mPlayers[curPlayer].myAI.requestOutput(AI.SELFKAN);
 									if(mPlayers[curPlayer].myAI.getOutput() == 1){
@@ -327,20 +330,98 @@ public class MainGameThread extends Thread implements Runnable{
 											mUI.triggerRedraw();
 											sleep(1000);
 											
-											/*if(mPlayers[curPlayer].powerActivated[Globals.Powers.drawBased]){
-												mPlayers[curPlayer].myAI.waitForThread();
-											}*/
-											
 											mPlayers[curPlayer].autoSelfKan();
 											if(!mTable.addDora()){
 												//abortive hand, do...something
 											}
 											mPlayers[curPlayer].rinshan = true;
+											mPlayers[curPlayer].myAI.handlePowersAtKan();
 											needDraw = true;
 										}
 										catch(Exception e){
 											String WTFAmI = e.toString();
 											Log.e("MainGemThread.run.selfKan", WTFAmI);
+										}
+										continue;
+									}
+								}
+								
+								if(promotedKan != -1){
+									mPlayers[curPlayer].myAI.requestOutput(AI.SELFKAN);
+									if(mPlayers[curPlayer].myAI.getOutput() == 1){
+										try{
+											mUI.showCall(curPlayer, Globals.CMD.SELFKAN, false);
+											mUI.triggerRedraw();
+											sleep(1000);
+											
+											//Ok this is kind of goofy, we discard it then reclaim it afterwards
+											tileToDiscard = mPlayers[curPlayer].myHand.discard(promotedKan, false);
+											mTable.discardTile(tileToDiscard, curPlayer);
+											
+											//We have to check if anyone can ron this
+											boolean ronCalled = false;
+											for(int playerToCheck = (curPlayer+1)%4; playerToCheck != curPlayer; playerToCheck = (playerToCheck+1)%4){
+												mPlayers[playerToCheck].robbing = true;
+												if(mPlayers[playerToCheck].myHand.canCallRon(tileToDiscard)){
+													if(mPlayers[playerToCheck].AIControlled){
+														
+														mPlayers[curPlayer].currentState = Globals.Characters.Graphics.SAD;
+														mPlayers[playerToCheck].currentState = Globals.Characters.Graphics.HAPPY;
+														mUI.showCall(playerToCheck, Globals.CMD.RON, true);
+														mUI.triggerRedraw();
+														sleep(1000);
+														
+														mPlayers[playerToCheck].myHand.draw(tileToDiscard, true);
+														result = playerToCheck;
+														ronCalled = true;
+														break;
+													}
+													else{
+														//mPlayers[playerToCheck].myHand.setupTilesToCall();
+														mUI.waitingForCallInput(false, false, false, true, false, false, false);
+														mUI.triggerRedraw();
+														while(callCmd == -1){
+															//mUI.waitingForCallInput(mPlayers[playerToCheck].myAI.canCallPon(tileToDiscard), mPlayers[playerToCheck].myAI.canCallChi(tileToDiscard), mPlayers[playerToCheck].myAI.canCallKan(tileToDiscard), mPlayers[playerToCheck].myAI.canCallRon(tileToDiscard), false);
+															//I don't know a good way to do this without polling
+															sleep(500);
+														}
+														int whatToDo = callCmd;
+														if(whatToDo != -1){
+															
+															mPlayers[curPlayer].currentState = Globals.Characters.Graphics.SAD;
+															mPlayers[playerToCheck].currentState = Globals.Characters.Graphics.HAPPY;
+															mUI.showCall(playerToCheck, Globals.CMD.RON, true);
+															mUI.triggerRedraw();
+															sleep(1000);
+															
+															//Display something to indicate the call
+															mPlayers[playerToCheck].myHand.draw(tileToDiscard, true);
+															result = playerToCheck;
+															ronCalled = true;
+															break;
+														}
+													}
+												}
+												mPlayers[playerToCheck].robbing = false;
+											}
+											if(ronCalled)
+												break;
+											
+											//OK we made it through now kan it
+											Tile tileToCall = mTable.undiscardLastTile(curPlayer);
+											mPlayers[curPlayer].autoPromotedKan(tileToCall);
+											
+											//mPlayers[curPlayer].autoSelfKan();
+											if(!mTable.addDora()){
+												//abortive hand, do...something
+											}
+											mPlayers[curPlayer].rinshan = true;
+											mPlayers[curPlayer].myAI.handlePowersAtKan();
+											needDraw = true;
+										}
+										catch(Exception e){
+											String WTFAmI = e.toString();
+											Log.e("MainGemThread.run.promotedKan", WTFAmI);
 										}
 										continue;
 									}
@@ -440,11 +521,12 @@ public class MainGameThread extends Thread implements Runnable{
 								}
 								
 								canKan = mPlayers[curPlayer].myHand.canCallSelfKan();
+								int promotedKan = mPlayers[curPlayer].myHand.canCallPromotedKan();
 								
 								callCmd = -1;
-								if(canTsumo || canKan || (canRiichi && !mPlayers[curPlayer].riichi)){
+								if(canTsumo || (canKan || promotedKan != -1) || (canRiichi && !mPlayers[curPlayer].riichi)){
 									
-									mUI.waitingForCallInput(false, false, false, false, canTsumo, canRiichi, canKan);
+									mUI.waitingForCallInput(false, false, false, false, canTsumo, canRiichi, (canKan || promotedKan != -1));
 									mUI.triggerRedraw();
 									while(callCmd == -1 && mRunning){
 										//mUI.waitingForCallInput(mPlayers[playerToCheck].myAI.canCallPon(tileToDiscard), mPlayers[playerToCheck].myAI.canCallChi(tileToDiscard), mPlayers[playerToCheck].myAI.canCallKan(tileToDiscard), mPlayers[playerToCheck].myAI.canCallRon(tileToDiscard), false);
@@ -471,17 +553,75 @@ public class MainGameThread extends Thread implements Runnable{
 										break;
 									}
 									else if(callCmd == Globals.CMD.SELFKAN){
-										mUI.showCall(curPlayer, callCmd, callCmd == Globals.CMD.TSUMO);
-										mUI.triggerRedraw();
-										sleep(1000);
-										mPlayers[curPlayer].autoSelfKan();
-										if(!mTable.addDora()){
-											//abortive hand, do...something
-										}
-										mPlayers[curPlayer].rinshan = true;
-										needDraw = true;
-										continue;
+										//Two possibilities here
 										
+										//Self Kan
+										if(canKan){
+											mUI.showCall(curPlayer, callCmd, callCmd == Globals.CMD.TSUMO);
+											mUI.triggerRedraw();
+											sleep(1000);
+											mPlayers[curPlayer].autoSelfKan();
+											if(!mTable.addDora()){
+												//abortive hand, do...something
+											}
+											mPlayers[curPlayer].rinshan = true;
+											mPlayers[curPlayer].myAI.handlePowersAtKan();
+											needDraw = true;
+											continue;
+										}
+										//Promoted Kan
+										else{
+											try{
+												mUI.showCall(curPlayer, Globals.CMD.SELFKAN, false);
+												mUI.triggerRedraw();
+												sleep(1000);
+												
+												//Ok this is kind of goofy, we discard it then reclaim it afterwards
+												tileToDiscard = mPlayers[curPlayer].myHand.discard(promotedKan, false);
+												mTable.discardTile(tileToDiscard, curPlayer);
+												
+												//We have to check if anyone can ron this
+												boolean ronCalled = false;
+												for(int playerToCheck = (curPlayer+1)%4; playerToCheck != curPlayer; playerToCheck = (playerToCheck+1)%4){
+													mPlayers[playerToCheck].robbing = true;
+													if(mPlayers[playerToCheck].myHand.canCallRon(tileToDiscard)){
+														if(mPlayers[playerToCheck].AIControlled){
+															
+															mPlayers[curPlayer].currentState = Globals.Characters.Graphics.SAD;
+															mPlayers[playerToCheck].currentState = Globals.Characters.Graphics.HAPPY;
+															mUI.showCall(playerToCheck, Globals.CMD.RON, true);
+															mUI.triggerRedraw();
+															sleep(1000);
+															
+															mPlayers[playerToCheck].myHand.draw(tileToDiscard, true);
+															result = playerToCheck;
+															ronCalled = true;
+															break;
+														}
+													}
+													mPlayers[playerToCheck].robbing = false;
+												}
+												if(ronCalled)
+													break;
+												
+												//OK we made it through now kan it
+												Tile tileToCall = mTable.undiscardLastTile(curPlayer);
+												mPlayers[curPlayer].autoPromotedKan(tileToCall);
+												
+												//mPlayers[curPlayer].autoSelfKan();
+												if(!mTable.addDora()){
+													//abortive hand, do...something
+												}
+												mPlayers[curPlayer].rinshan = true;
+												mPlayers[curPlayer].myAI.handlePowersAtKan();
+												needDraw = true;
+											}
+											catch(Exception e){
+												String WTFAmI = e.toString();
+												Log.e("MainGemThread.run.promotedKan", WTFAmI);
+											}
+											continue;
+										}
 									}
 									else if(callCmd == Globals.CMD.RIICHI){
 										mUI.showCall(curPlayer, callCmd, callCmd == Globals.CMD.TSUMO);
@@ -569,8 +709,6 @@ public class MainGameThread extends Thread implements Runnable{
 								mPlayers[curPlayer].myAI.handlePowersAtDiscard();
 							}
 							
-							//Check for Pons/Chis/rons....in the future
-							
 							//Add to discard Pile
 							//Discards[curPlayer][discardCount[curPlayer]++] = tileToDiscard;
 							mTable.discardTile(tileToDiscard, curPlayer);
@@ -634,9 +772,6 @@ public class MainGameThread extends Thread implements Runnable{
 									result = playerCalling;
 									break;
 								}
-								//else if(mPlayers[playerCalling].AIControlled){
-								//	mPlayers[playerCalling].myAI.AIMeld(lastDiscard);
-								//}
 								else{
 									//Do stuff
 									mPlayers[curPlayer].currentState = Globals.Characters.Graphics.NEUTRAL;
@@ -687,17 +822,14 @@ public class MainGameThread extends Thread implements Runnable{
 										mTable.addDora();
 									}
 								}
-								//mTable.undiscardLastTile(curPlayer);
 								mUI.triggerRedraw();
 								curPlayer = playerCalling;
-								//needDraw = false;
 								continue;
 							}
 							
 							mUI.triggerRedraw();
 							curPlayer = (curPlayer+1)%4;
 							needDraw = true;
-							//sleep(2000); //delete this, it's just so I can see what's happening
 						}
 						
 						playerStats.updateForEndOfHand();
@@ -709,8 +841,6 @@ public class MainGameThread extends Thread implements Runnable{
 							//then someone won the hand
 							//Globals.myAssert(false);
 							
-							//mPlayers[result].scoreHand();
-							//int[] pYaku = mPlayers[result].yaku;
 							int[] losers = new int[] {-1, -1, -1};
 							boolean isEast = mPlayers[result].currentWind == Globals.Winds.EAST;
 							if(mPlayers[result].riichi)
@@ -781,45 +911,152 @@ public class MainGameThread extends Thread implements Runnable{
 							mPlayers[result].offsetScore(mTable.getPointsOnTable());
 							mTable.clearPointsOnTable();
 							
-							mUI.showScoreScreen(result, losers[0], losers[1], losers[2], points);
-							while(!mRunning){
-								sleep(250);
+							if(mRunning){//This is counter intuitive, but it prevents it from getting stuck on quit
+								mUI.showScoreScreen(result, losers[0], losers[1], losers[2], points, false);
+								while(!mRunning){
+									sleep(250);
+								}
 							}
 							
 						}
 						else if(result == DRAW){
 							//It's a draw
-							ArrayList<Integer> inTenpai = new ArrayList<Integer>();
-							ArrayList<Integer> notInTenpai = new ArrayList<Integer>();
-							for(int i = 0; i < 4; i++){
-								if(mPlayers[i].myHand.inTenpai){
-									inTenpai.add(i);
-									if(i == curEast)
-										result = curEast;
-								}
-								else
-									notInTenpai.add(i);
-							}
 							
-							if(inTenpai.size() != 0 && inTenpai.size() != 4){
-								int toWinners = 3000/inTenpai.size();
-								int fromLosers = 3000/notInTenpai.size();
-								for(int i = 0; i < inTenpai.size(); i++){
-									mPlayers[inTenpai.get(i)].offsetScore(toWinners);
-								}
-								for(int i = 0; i < notInTenpai.size(); i++){
-									mPlayers[notInTenpai.get(i)].offsetScore(-fromLosers);
+							//Check For nagashi mangan
+							int NagashiManganFor = -1;
+							for(int thisPlayer = 0; thisPlayer < 4; thisPlayer++){
+								//check melds
+								boolean bNagashi = true;
+								int[] discardCounts = mTable.getDiscardCounts(thisPlayer);
+								for(int thisTile = 1; thisTile <= Tile.LAST_TILE; thisTile++){
+									if(discardCounts[thisTile] > 0){
+										if(Tile.convertRawToSuit(thisTile) < Globals.Suits.SANGEN){
+											int relNum = Tile.convertRawToRelative(thisTile);
+											if(relNum != 1 && relNum != 9){
+												bNagashi = false;
+												break;
+											}
+										}
+									}
 								}
 								
+								if(bNagashi){
+									for(int meldPlayer = 0; meldPlayer < 4; meldPlayer++){
+										if(meldPlayer == thisPlayer)
+											continue;
+										for(int thisMeld = 0; thisMeld < mPlayers[meldPlayer].myHand.numberOfMelds; thisMeld++){
+											if(mPlayers[meldPlayer].myHand.melds[thisMeld][Hand.MELD_TILE_FROM] == thisPlayer){
+												bNagashi = false;
+												break;
+											}
+										}
+										
+										if(!bNagashi)
+											break;
+									}
+								}
+								
+								if(bNagashi)
+									NagashiManganFor = thisPlayer;
 							}
 							
-							for(int thisPlayer = 0; thisPlayer < 4; thisPlayer++){
-								if(inTenpai.contains(thisPlayer))
-									mUI.showCall(thisPlayer, Globals.CMD.TENPAI, true);
-								else
-									mUI.showCall(thisPlayer, Globals.CMD.NOTEN, false);
-								mUI.triggerRedraw();
-								sleep(2000);
+							if(NagashiManganFor >= 0){
+								int[] losers = new int[] {(NagashiManganFor+1)%4, (NagashiManganFor+2)%4, (NagashiManganFor+3)%4};
+								boolean isEast = mPlayers[NagashiManganFor].currentWind == Globals.Winds.EAST;
+								int points = Globals.otherLimitTable[0];
+									if(isEast){
+										points = Globals.eastLimitTable[0];
+										mPlayers[NagashiManganFor].myAI.handlePowersAtWin();
+										
+										if((points%300) != 0)
+											points += 100;
+										
+										int pointsPer = points/3;
+										mPlayers[NagashiManganFor].offsetScore(points);
+										int idx = 0;
+										for(int i = (NagashiManganFor+1)%4; i != NagashiManganFor; i = (i+1)%4){
+											mPlayers[i].myAI.handlePowersAtLose();
+											losers[idx++] = i;
+											mPlayers[i].offsetScore(-pointsPer);
+										}
+									}
+									else{
+										mPlayers[NagashiManganFor].myAI.handlePowersAtWin();
+										int eastPointsPer = points/2;
+										if((eastPointsPer%100) != 0)
+											eastPointsPer = (points+100)/2;
+										
+										int pointsPer = eastPointsPer/2;
+										if((pointsPer%100) != 0)
+											pointsPer = (eastPointsPer+100)/2;
+										
+										mPlayers[NagashiManganFor].offsetScore(points);
+										int idx = 0;
+										for(int i = (NagashiManganFor+1)%4; i != NagashiManganFor; i = (i+1)%4){
+											mPlayers[i].myAI.handlePowersAtLose();
+											losers[idx++] = i;
+											if(mPlayers[i].currentWind == Globals.Winds.EAST)
+												mPlayers[i].offsetScore(-(2*pointsPer));
+											else
+												mPlayers[i].offsetScore(-pointsPer);
+										}
+									}
+									
+									int[] tempYaku = new int[Globals.ALLYAKUCOUNT];
+									tempYaku[Globals.NAGASHIMANGAN] = 5;
+									if(NagashiManganFor == 0)
+										playerStats.updateForWin(tempYaku, 5, true);
+									else
+										AIStats.updateForWin(tempYaku, 5, true);
+									
+									mPlayers[NagashiManganFor].offsetScore(mTable.getPointsOnTable());
+									mTable.clearPointsOnTable();
+									
+									mUI.showCall(NagashiManganFor, Globals.CMD.TSUMO, false);
+									mUI.triggerRedraw();
+									sleep(2000);
+									
+									if(mRunning){//This is counter intuitive, but it prevents it from getting stuck on quit
+										mUI.showScoreScreen(NagashiManganFor, losers[0], losers[1], losers[2], points, true);
+										while(!mRunning){
+											sleep(250);
+										}
+									}
+							}
+							else{
+							
+								ArrayList<Integer> inTenpai = new ArrayList<Integer>();
+								ArrayList<Integer> notInTenpai = new ArrayList<Integer>();
+								for(int i = 0; i < 4; i++){
+									if(mPlayers[i].myHand.inTenpai){
+										inTenpai.add(i);
+										if(i == curEast)
+											result = curEast;
+									}
+									else
+										notInTenpai.add(i);
+								}
+								
+								if(inTenpai.size() != 0 && inTenpai.size() != 4){
+									int toWinners = 3000/inTenpai.size();
+									int fromLosers = 3000/notInTenpai.size();
+									for(int i = 0; i < inTenpai.size(); i++){
+										mPlayers[inTenpai.get(i)].offsetScore(toWinners);
+									}
+									for(int i = 0; i < notInTenpai.size(); i++){
+										mPlayers[notInTenpai.get(i)].offsetScore(-fromLosers);
+									}
+									
+								}
+								
+								for(int thisPlayer = 0; thisPlayer < 4; thisPlayer++){
+									if(inTenpai.contains(thisPlayer))
+										mUI.showCall(thisPlayer, Globals.CMD.TENPAI, true);
+									else
+										mUI.showCall(thisPlayer, Globals.CMD.NOTEN, false);
+									mUI.triggerRedraw();
+									sleep(2000);
+								}
 							}
 							mUI.triggerRedraw();
 							sleep(2000);
@@ -853,7 +1090,7 @@ public class MainGameThread extends Thread implements Runnable{
 					}
 					places[curUsed] = rank;
 					scores[curUsed] = -99999;
-					highest = 0;
+					highest = -99998;
 				}
 				playerStats.updateForEnd(mPlayers[0].score, places[0]);
 				AIStats.updateForEnd(mPlayers[1].score, places[1], mPlayers[2].score, places[2], mPlayers[3].score, places[3]);
@@ -907,6 +1144,7 @@ public class MainGameThread extends Thread implements Runnable{
 			else{
 				ret = new Tile(mTable.drawRandomTile());
 			}
+			
 			return ret;
 		}
 		catch(Exception e){
@@ -927,11 +1165,11 @@ public class MainGameThread extends Thread implements Runnable{
 					 0,0,0};
 		for(int player = 0; player < 4; player++){
 			for(int i = 0; i < mPlayers[player].myHand.numberOfMelds; i++){
-				meldCounts[mPlayers[player].myHand.melds[i][1]]++;
-				meldCounts[mPlayers[player].myHand.melds[i][2]]++;
-				meldCounts[mPlayers[player].myHand.melds[i][3]]++;
+				meldCounts[mPlayers[player].getRawTileAt(mPlayers[player].myHand.melds[i][1]).rawNumber]++;
+				meldCounts[mPlayers[player].getRawTileAt(mPlayers[player].myHand.melds[i][2]).rawNumber]++;
+				meldCounts[mPlayers[player].getRawTileAt(mPlayers[player].myHand.melds[i][3]).rawNumber]++;
 				if(mPlayers[player].myHand.melds[i][0] == 4)
-					meldCounts[mPlayers[player].myHand.melds[i][4]]++;
+					meldCounts[mPlayers[player].getRawTileAt(mPlayers[player].myHand.melds[i][4]).rawNumber]++;
 			}
 		}
 		return meldCounts;
@@ -964,6 +1202,7 @@ public class MainGameThread extends Thread implements Runnable{
 	 */
 	
 	public void sendDiscardMessage(int Idx){
+		Globals.myAssert(Idx >= 0);
 		discardIdx = Idx;
 	}
 	
