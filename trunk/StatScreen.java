@@ -12,6 +12,7 @@ import android.widget.ToggleButton;
 public class StatScreen extends Activity {
 	
 	boolean bJapanese;
+	boolean bRomanji;
 
 	public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -21,6 +22,7 @@ public class StatScreen extends Activity {
         	setContentView(R.layout.playerstats);
         	//TextView errorMsg = (TextView)findViewById(R.id.errorMsg);
         	bJapanese = getIntent().getBooleanExtra("bJapanese", false);
+        	bRomanji = getIntent().getBooleanExtra("bRomanji", true);
         	//if(savedInstanceState != null)
         	//	bJapanese = savedInstanceState.getBoolean("bDebug");
         	//else
@@ -84,7 +86,10 @@ public class StatScreen extends Activity {
 	        	
 	        	((TextView)findViewById(R.id.avgScore)).setText(idToText(R.id.avgScore, bJapanese) + ": " + playerStats.avgScore.toString());
 	        	((TextView)findViewById(R.id.spacer)).setText("");
-	        	((TextView)findViewById(R.id.totalHands)).setText(idToText(R.id.totalHands, bJapanese) + ": " + playerStats.totalHands.toString());
+	        	if(AI)
+	        		((TextView)findViewById(R.id.totalHands)).setText(idToText(R.id.totalHands, bJapanese) + ": " + String.valueOf(playerStats.totalHands/3));
+	        	else
+	        		((TextView)findViewById(R.id.totalHands)).setText(idToText(R.id.totalHands, bJapanese) + ": " + playerStats.totalHands.toString());
 	        	
 	        	doubleConverter= String.valueOf(playerStats.winPercentage);
 	        	if(doubleConverter.length() > 5)
@@ -113,14 +118,14 @@ public class StatScreen extends Activity {
 	        		doubleConverter= String.valueOf(playerStats.yakuPercentages[thisYaku]);
 		        	if(doubleConverter.length() > 5)
 		        		doubleConverter = doubleConverter.substring(0, 4);
-		        	((TextView)findViewById(yakuTextViewIDs[thisYaku])).setText(Globals.yakuToString(thisYaku, bJapanese) + ": "+ doubleConverter + "%");
+		        	((TextView)findViewById(yakuTextViewIDs[thisYaku])).setText(Globals.yakuToString(thisYaku, bJapanese, bRomanji) + ": "+ doubleConverter + "%");
 	        	}
 	        	
 	        	((TextView)findViewById(R.id.Spacer3)).setText("");
 	        	((TextView)findViewById(R.id.Header3)).setText(idToText(R.id.Header3, bJapanese));
 	        	
 	        	for(int thisYaku = Globals.NONYAKUMAN; thisYaku < Globals.ALLYAKUCOUNT; thisYaku++){
-		        	((TextView)findViewById(yakuTextViewIDs[thisYaku])).setText(Globals.yakuToString(thisYaku, bJapanese) + ": "+ playerStats.yakuCount[thisYaku].toString());
+		        	((TextView)findViewById(yakuTextViewIDs[thisYaku])).setText(Globals.yakuToString(thisYaku, bJapanese, bRomanji) + ": "+ playerStats.yakuCount[thisYaku].toString());
 	        	}
 	        	
 	        	((TextView)findViewById(R.id.Spacer4)).setText("");
@@ -253,3 +258,4 @@ public class StatScreen extends Activity {
 		}
 	}
 }
+
